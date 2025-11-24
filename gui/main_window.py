@@ -397,6 +397,7 @@ def toggle_shiftc():
 
 def show_webloader():
     st.subheader('Upload from web')
+    st.link_button('P3SC website', 'https://p3sc.oma.be/P3SC_archive/#', type='tertiary')
     st.write('')
     
     level = st.radio("Level", ["L1", "L2", "L3"], horizontal=True, key=f'level_{tabname}')
