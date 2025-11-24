@@ -35,7 +35,8 @@ def merge_window():
         st.divider()
     
         merge_mode = st.radio("Merging procedure:",
-            ["INAF", "ROB (L2 files)"],
+            [#"INAF", 
+             "ROB (L2 files)"],
             horizontal=True,
             key="which_merge"
         )
