@@ -1,0 +1,6 @@
+__pycache__/
+*.png
+*.jpeg
+*.pyc
+.streamlit/
+gui/try.py

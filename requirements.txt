@@ -1,0 +1,15 @@
+astropy
+bs4
+datetime
+matplotlib
+numpy
+pandas
+pathlib
+plotly
+sunkit_image
+scipy
+scikit-image
+streamlit==1.51.0
+streamlit_plotly_events
+sunpy
+watroo
