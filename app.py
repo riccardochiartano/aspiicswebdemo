@@ -32,7 +32,7 @@ def main():
     st.title("ASPIICS web")
 
     # sidebar
-    show_sidebar()
+    #show_sidebar()
 
     tab_main, tab_calib, tab_merge, tab_demod, tab_edens, tab_subc, tab_movies, tab_comparison = st.tabs([
         "Main",

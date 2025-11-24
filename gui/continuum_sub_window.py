@@ -28,7 +28,8 @@ def continuum_sub_window():
         st.subheader("Continuum subtraction (FeXIV/HeI)")
 
         spectrum = st.radio("Spectrum:",
-                ["Allen", "AM0", "Koutchmy"],
+                [#"Allen", "AM0", 
+                 "Koutchmy"],
                 horizontal=True  
             )
 
