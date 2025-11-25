@@ -450,7 +450,7 @@ def show_webloader():
     flt_list = [key for key, checked in checkboxes.items() if checked]
 
 
-    cycle_id = st.text_input("Cycle ID (8 digits)", "1560607E", key=f'cid_{tabname}')
+    cycle_id = st.text_input("Cycle ID (8 digits)", "17606004", key=f'cid_{tabname}')
     #seq_num = st.text_input("Sequence number", "")
     #acq_num = st.text_input("Acquisition number", "")
     #exp_num = st.text_input("Exposure number", "")
