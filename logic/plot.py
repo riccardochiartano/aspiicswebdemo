@@ -225,7 +225,7 @@ def aspiics_cmap_new(map_plot):
     dir_cmaps = os.path.join(base_dir, 'resources', 'rob_calib_data')
     c_path = os.path.join(dir_cmaps, 'wb_colormap.txt')
     filter = map_plot.meta.get('filename', '')
-    if 'pb' or '0, 60, 120' in filter:
+    if ('pb' or 'pB') in filter:
         c_path = os.path.join(dir_cmaps, 'p_colormap.txt')
     if 'fe' in filter:
         c_path = os.path.join(dir_cmaps, 'fe_colormap.txt')
