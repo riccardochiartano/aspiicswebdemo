@@ -195,7 +195,11 @@ def file_to_smap(file):
         tmp.write(file.read())
         tmp_path = tmp.name
 
-    solar_map = sunpy.map.Map(tmp_path)
+    if 'metis' not in file.name:
+        solar_map = sunpy.map.Map(tmp_path)
+    else:
+        solar_map = sunpy.map.Map(tmp_path)[0]
+        
     solar_image = solar_map.data
     if not np.issubdtype(solar_image.dtype, np.floating):
         solar_image = solar_image.astype(float)
