@@ -34,7 +34,7 @@ def profile_window():
         start_rsun, end_rsun = st.slider(
             "Select profile start / end [Rsun]",
             min_value=1.0,
-            max_value=4.0,
+            max_value=6.0,
             value=(1.3, 3.0),
             step=0.1
         )
