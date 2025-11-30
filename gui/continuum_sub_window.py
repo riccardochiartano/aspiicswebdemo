@@ -56,7 +56,7 @@ def continuum_sub_window():
                 filter_map = no_neg(filter_map)
                 WBF_map = no_neg(WBF_map) 
 
-                FeXIV_sub_image = filter_map.data - WBF_map.data * rate
+                FeXIV_sub_image = filter_map.data - WBF_map.data #* rate
                 FeXIV_sub_map = sunpy.map.Map(FeXIV_sub_image, filter_map.meta)
                 
                 FeXIV_sub_map = change_header(FeXIV_sub_map)
@@ -102,7 +102,10 @@ def no_neg(map):
 def change_header(map):
     filename = map.meta['filename']
     comps = filename.split('.')
-    filename_new = comps[0] + '_sub.' + comps[1]
+    try:
+        filename_new = comps[0] + '_sub.' + comps[1] + '.' + comps[2]
+    except:
+        filename_new = comps[0] + '_sub.' + comps[1]
     parts = filename_new.split('_')
     parts[2] = 'l3'
     filename_new = '_'.join(parts)
