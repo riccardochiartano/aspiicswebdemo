@@ -12,7 +12,7 @@ from streamlit_plotly_events import plotly_events
 
 from logic.process import wow_filter, log_scale, nrgf_filter, mgn_filter, unsharp_mask_filter
 from logic.plot import plot_profile, aspiics_cmap, aspiics_cmap_new, plot_NE_labels, plot_pprof, plot_rprof
-from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_files_url, download_web_files_btn, header_from_sunpymap
+from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_files_url, aspiics_files_api, download_web_files_btn, header_from_sunpymap
 from gui.profile_window import profile_window
 import logic.rob.aspiics_misc as am
 
@@ -128,10 +128,9 @@ def SolarMapViewer():
                     ["Linear", 
                      "Log",
                       #"MGN", 
-                      #"WOW filter", 
-                      #"Unsharp masking", 
-                      #"NRGF filter (Slow)",
-                      ],
+                      "WOW filter", 
+                      "Unsharp masking", 
+                      "NRGF filter (Slow)"],
                     horizontal=True,
                     label_visibility='collapsed'  
                 )
@@ -397,7 +396,6 @@ def toggle_shiftc():
 
 def show_webloader():
     st.subheader('Upload from web')
-    st.link_button('P3SC website', 'https://p3sc.oma.be/P3SC_archive/#', type='tertiary')
     st.write('')
     
     level = st.radio("Level", ["L1", "L2", "L3"], horizontal=True, key=f'level_{tabname}')
@@ -416,13 +414,21 @@ def show_webloader():
             flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
             flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
 
+        #checkboxes = {
+        #    "wb": flt_wb,
+        #    "fe": flt_fe,
+        #    "he": flt_he,
+        #    "p1": flt_p1,
+        #    "p2": flt_p2,
+        #    "p3": flt_p3
+        #}
         checkboxes = {
-            "wb": flt_wb,
-            "fe": flt_fe,
-            "he": flt_he,
-            "p1": flt_p1,
-            "p2": flt_p2,
-            "p3": flt_p3
+            "Wide": flt_wb,
+            "Fe": flt_fe,
+            "He": flt_he,
+            "Polarizer%2060": flt_p1,
+            "Polarizer%200": flt_p2,
+            "Polarizer%20120": flt_p3
         }
     else:
         col, col1, col2, col3 = st.columns([1,1,1,1])
@@ -438,19 +444,24 @@ def show_webloader():
         #    flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
         #    flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
 
+        #checkboxes = {
+        #    "bt": flt_bt,
+        #    "pb": flt_pb,
+        #}
         checkboxes = {
-            "bt": flt_bt,
-            "pb": flt_pb,
-            #"he": flt_he,
-            #"p1": flt_p1,
-            #"p2": flt_p2,
-            #"p3": flt_p3
+            "Wide": flt_bt,
+            "0": flt_pb,
         }
 
     flt_list = [key for key, checked in checkboxes.items() if checked]
 
+    # if nothing checked -> 
+    if not flt_list:
+        flt_list = list(checkboxes.keys())
 
-    cycle_id = st.text_input("Cycle ID (8 digits)", "1560607E", key=f'cid_{tabname}')
+
+    orbit_id = st.text_input("Orbit ID", "273", key=f'oid_{tabname}')
+    cycle_id = st.text_input("Cycle ID (8 digits)", "", key=f'cid_{tabname}')
     #seq_num = st.text_input("Sequence number", "")
     #acq_num = st.text_input("Acquisition number", "")
     #exp_num = st.text_input("Exposure number", "")
@@ -467,6 +478,8 @@ def show_webloader():
         time_start = st.time_input("Time", datetime.time(0,0), step=600, key=f'time_start_{tabname}')
         time_end = st.time_input("Time", datetime.time(23,59), step=600, key=f'time_end_{tabname}')
     
+    limit = st.text_input("Limit query results:", "10", key=f'limit_{tabname}')
+
     if st.button("Show files", key=f'shw_files_{tabname}'):
     #    st.session_state.show_files = not st.session_state.show_files
     #
@@ -474,7 +487,8 @@ def show_webloader():
         dt_start = datetime.datetime.combine(date_start, time_start)
         dt_end = datetime.datetime.combine(date_end, time_end)
             
-        files_url = aspiics_files_url(flt_list, level, cycle_id, dt_start, dt_end)
+        #files_url = aspiics_files_url(flt_list, level, cycle_id, dt_start, dt_end)
+        files_url = aspiics_files_api(flt_list, level, orbit_id, cycle_id, dt_start, dt_end, limit)
         if files_url == []:
             st.error('No files with these keys...')
         st.session_state.files_url = files_url

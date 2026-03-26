@@ -35,8 +35,7 @@ def demodulation_window():
         st.divider()
 
         cal_mode = st.radio("Demodulation procedure:",
-            [#"INAF", 
-             "ROB"],
+            ["INAF", "ROB"],
             horizontal=True,
             key="which_calib"
         )
@@ -44,7 +43,7 @@ def demodulation_window():
         st.divider()
         
         # rimetti il true quando hai finito prove (per avere file demod di default)
-        if True:
+        if False:
             angles = ["0°", "60°", "120°"]
             p_files = ['p2', 'p1', 'p3']
 

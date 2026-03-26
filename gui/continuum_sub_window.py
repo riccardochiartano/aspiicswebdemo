@@ -28,8 +28,7 @@ def continuum_sub_window():
         st.subheader("Continuum subtraction (FeXIV/HeI)")
 
         spectrum = st.radio("Spectrum:",
-                [#"Allen", "AM0", 
-                 "Koutchmy"],
+                ["Allen", "AM0", "Koutchmy"],
                 horizontal=True  
             )
 
@@ -102,10 +101,7 @@ def no_neg(map):
 def change_header(map):
     filename = map.meta['filename']
     comps = filename.split('.')
-    try:
-        filename_new = comps[0] + '_sub.' + comps[1] + '.' + comps[2]
-    except:
-        filename_new = comps[0] + '_sub.' + comps[1]
+    filename_new = comps[0] + '_sub.' + comps[1] + '.' + comps[2]
     parts = filename_new.split('_')
     parts[2] = 'l3'
     filename_new = '_'.join(parts)

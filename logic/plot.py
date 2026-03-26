@@ -152,15 +152,19 @@ def plot_rprof(ax, solar_map, profiles):
         ampl = prof['ampl']
         r_in = radii[0] * rsun_arcsec / scale
         r_out = radii[-1] * rsun_arcsec / scale
+        
+        #angle_start = (angle - ampl/2)
+        #angle_end = (angle + ampl/2)
+        angle_start = 90 - (angle + ampl/2)
+        angle_end = 90 - (angle - ampl/2)
 
         wedge = Wedge((sun_x, sun_y), 
                       r_out, 
-                      angle-ampl/2, angle+ampl/2, 
+                      angle_start, angle_end, 
                       width=r_out-r_in, 
                       facecolor=f'C{i}', alpha=0.5)
         ax.add_patch(wedge)
         ax.figure.canvas.draw()
-    
 
 def plot_pprof(ax, solar_map, profiles):
     scale = solar_map.scale[0].to(u.arcsec/u.pixel).value
@@ -172,8 +176,10 @@ def plot_pprof(ax, solar_map, profiles):
         width = prof['width']
         r_in = dist * rsun_arcsec / scale
         r_out = r_in + width * rsun_arcsec / scale
-        angle_start = angles[0]
-        angle_end = angles[-1] 
+        #angle_start = angles[0]
+        #angle_end = angles[-1] 
+        angle_start = 90 - angles[-1]
+        angle_end = 90 - angles[0] 
 
         wedge = Wedge((sun_x, sun_y), 
                       r_out, 
@@ -182,7 +188,51 @@ def plot_pprof(ax, solar_map, profiles):
                       facecolor=f'C{i}', alpha=0.5)
         ax.add_patch(wedge)
         ax.figure.canvas.draw()
+
+##############################
+# just one profile at a time #
+##############################
+
+def plot_onerprof(ax, solar_map, radii, angle, ampl, color='gray'):
+    scale = solar_map.scale[0].to(u.arcsec/u.pixel).value
+    rsun_arcsec = solar_map.rsun_obs.value
+    sun_x, sun_y = sun_center(solar_map)
+
+    r_in = radii[0] * rsun_arcsec / scale
+    r_out = radii[-1] * rsun_arcsec / scale
+
+    # avendo angle in rif solare
+    angle_start = 90 - (angle + ampl/2)
+    angle_end = 90 - (angle - ampl/2)
+
+    wedge = Wedge((sun_x, sun_y), 
+                    r_out, 
+                    angle_start, angle_end, 
+                    width=r_out-r_in, 
+                    facecolor=color, alpha=0.5)
+    wedge.set_transform(ax.get_transform('pixel'))
+    ax.add_patch(wedge)
+    ax.figure.canvas.draw()
     
+def plot_onepprof(ax, solar_map, angles, width, dist, color='gray'):# profiles):
+    scale = solar_map.scale[0].to(u.arcsec/u.pixel).value
+    rsun_arcsec = solar_map.rsun_obs.value
+    sun_x, sun_y = sun_center(solar_map)
+
+    r_in = dist * rsun_arcsec / scale
+    r_out = r_in + width * rsun_arcsec / scale
+    angle_start = 90 - angles[-1]
+    angle_end = 90 - angles[0] 
+
+    wedge = Wedge((sun_x, sun_y), 
+                    r_out, 
+                    angle_start, angle_end, 
+                    width=r_out-r_in, 
+                    facecolor=color, alpha=0.6)
+    ax.add_patch(wedge)
+    ax.figure.canvas.draw()
+
+##############################
 
 def plot_map(map):
     #fig = plt.figure()

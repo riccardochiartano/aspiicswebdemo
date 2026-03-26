@@ -7,6 +7,7 @@ import astropy.units as u
 from astropy.io import fits
 import streamlit as st
 from io import BytesIO
+from scipy import interpolate
 import tempfile
 import os
 import zipfile
@@ -216,7 +217,8 @@ def radial_profile(solar_map, angle, start_rsun, end_rsun, ampl=np.deg2rad(1), n
     dx = (x - sun_x)
     dy = (y - sun_y)
     r = np.sqrt(dx**2 + dy**2) * scale * u.arcsec
-    angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
+    #angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
+    angles_grid = np.mod(np.arctan2(-dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
     
     angle_start, angle_end = angle - ampl/2, angle + ampl*2
     angle_mask = (angles_grid >= angle_start) & (angles_grid <= angle_end)
@@ -259,7 +261,8 @@ def polar_profile(solar_map, dist, first_angle, last_angle, n_angles=360, step_r
     dx = (x - sun_x)
     dy = (y - sun_y)
     r = np.sqrt(dx**2 + dy**2) * scale * u.arcsec
-    angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
+    #angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
+    angles_grid = np.mod(np.arctan2(-dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
 
     r_in_arcsec = dist * rsun_arcsec
     r_out_arcsec = (dist + step_rsun) * rsun_arcsec
@@ -381,6 +384,49 @@ def aspiics_files_url(filter_list, level, cycle_id, start_dt, end_dt):
 
     return matched_files
 
+def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, limit):
+    # baseAPI url
+    baseAPI = "https://p3sc.oma.be/api/"
+    # select the columns
+    select = "select=name,FILTER,orbit_id,version"
+    # add order
+    order = "order=DATE-OBS.desc.nullslast"
+    # add the fixed filter
+    version = "version=eq.v2"
+
+    # add variable filter options
+    filters = 'or('
+    for filter in filter_list:
+        filters += f'FILTER.like.{filter}*,'
+    filters = filters[:-1] + ')'
+
+    start_dt = start_dt.isoformat()
+    end_dt = end_dt.isoformat()
+    
+    if cycle_id:
+        final_keywords = f"and(and(and({filters},orbit_id.eq.{orbit_id}),cycle_id.eq.{cycle_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+    else:
+        final_keywords = f"and(and({filters},orbit_id.eq.{orbit_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+    
+    # limit the amount of results
+    limit_str = f"limit={limit}"
+
+    #generate the final url
+    apiQuery = f"{baseAPI}{level}?{select}&{version}&{order}&and=(active.eq.true,{final_keywords})&{limit_str}"
+    response = requests.get(apiQuery)
+    data = response.json()
+    st.write(apiQuery)
+    fileURLList = []
+    baseDataURL = "https://p3sc.oma.be/datarepfiles"
+    fileLevel = level
+    for item in data:
+        file_name = item['name']
+        file_version = item['version']
+        file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{file_name}"
+        fileURLList.append(file_url)
+    #st.write(fileURLList)
+    return fileURLList
+
 def header_from_sunpymap(meta):
     header_dict = {}
 
@@ -392,3 +438,111 @@ def header_from_sunpymap(meta):
             pass 
     header = fits.Header(header_dict)
     return header
+
+def update_meta_rotangle(solar_map, rot_angle):
+    new_angle_deg = solar_map.meta['crota'] + rot_angle
+    theta = np.deg2rad(new_angle_deg)
+
+    solar_map.meta['pc1_1'] = np.cos(theta)
+    solar_map.meta['pc1_2'] = -np.sin(theta)
+    solar_map.meta['pc2_1'] = np.sin(theta)
+    solar_map.meta['pc2_2'] = np.cos(theta)
+
+    solar_map.meta['crota'] = new_angle_deg
+
+    return solar_map
+
+def f_corona(xx,yy,**kwargs):
+    """Gives the current model of F-corona in MSB interpolated to xx and yy [R_Sun] 2D arrays
+    """
+    #pixscale=2.8125 ; x_IO=1023.5 ; y_IO=1023.5 ; RSun=16.0*60.0
+    #xx = np.outer(np.ones(2048),np.linspace(0,2047,num=2048)-x_IO) * pixscale / RSun
+    #yy = np.outer(np.linspace(0,2047,num=2048)-y_IO,np.ones(2048)) * pixscale / RSun
+
+    model=kwargs.get('model','standard')
+    if model=='simple_sh' or model=='Allen':
+        ## Simple polar-symmetrical model of F-corona from Allen 1977 used by sshestov in his initial
+        ##    simulated data IDL software (b_corona.pro),  units - [1e-10 MSB]
+        ##               *      *    *                    - these three are fake, to simplify interpolation inside 1.1R_Sun
+        r_C = np.array([0.01,  0.5, 0.90, 1.01, 1.03, 1.06,  1.10, 1.20, 1.40, 1.60, 1.80, 2.00, 2.20, 2.50, 3.00, 4.00, 5.00, 10.0])
+        B_F1= np.array([3.27, 3.26, 3.27, 3.22, 3.16, 3.06,  3.00, 2.80, 2.46, 2.24, 2.06, 1.93, 1.81, 1.65, 1.43, 1.10, 0.83, 0.23])-10.0
+        #  from my IDL code       R_Sun =[1.01, 1.03, 1.06,  1.10, 1.20, 1.40, 1.60, 1.80, 2.00, 2.20, 2.50, 3.00, 4.00, 5.00, 10.0] ; Allen
+        #                         B_F_A =[3.22, 3.16, 3.06,  3.00, 2.80, 2.46, 2.24, 2.06, 1.93, 1.81, 1.65, 1.43, 1.10, 0.83, 0.23]
+        B_F2= B_F1.copy() #np.array([3.25, 3.24, 3.23, 3.22, 3.16, 3.06,  3.00, 2.80, 2.46, 2.24, 2.06, 1.93, 1.81, 1.65, 1.43, 1.10, 0.83, 0.23])-10.0
+        origin='Allen 1977'
+        
+    else:      # implying standard model=='standard':          
+        ## Brightness of the F-corona, Koutchmy (2000); units - [1e-10 MSB]
+        ##                *     *      *    *      *     - these five are fake, to simplify interpolation inside 1.1R_Sun
+        r_C  = np.array([0.1,  0.5,  0.95, 1.03, 1.06,  1.10, 1.20, 1.40, 1.60, 2.00, 2.50, 3.00, 4.00, 5.00,10.0])
+        B_F1 = np.array([3.25, 3.24, 3.23, 3.21,  3.2,  3.10, 2.90, 2.50, 2.25, 1.91, 1.66, 1.48, 1.23, 1.00, 0.31])-10.0
+        B_F2 = np.array([3.25, 3.23, 3.23, 3.21,  3.2,  3.10, 2.90, 2.50, 2.25, 1.82, 1.56, 1.33, 1.03, 0.80, 0.06])-10.0
+        origin='Koutchmy2000'
+    
+    
+    rr = np.sqrt( np.add(np.square(xx),np.square(yy)) )
+    phi= np.arctan2(yy,xx)
+    c1= np.abs(np.abs(phi)-np.pi/2.)/(np.pi/2.)
+    c2= 1.0 - c1
+
+    kind='linear'      #  ‘linear’, ‘nearest’, ‘nearest-up’, ‘zero’, ‘slinear’, ‘quadratic’, ‘cubic’, ‘previous’, or ‘next’
+    inter1 = interpolate.interp1d(r_C, B_F1, kind=kind, fill_value='extrapolate')   # bounds_error="False", fill_value=3.2)  gives error?
+    inter2 = interpolate.interp1d(r_C, B_F2, kind=kind, fill_value='extrapolate')   
+
+    Fcor1 = inter1(rr)
+    Fcor2 = inter2(rr)
+    Fcor = c1*Fcor1 + c2*Fcor2
+    Fcor = np.power(10.0,Fcor)
+    Fcor = Fcor.astype(np.float32)
+
+    verbose=kwargs.get('verbose', False)
+    if verbose:
+        plt.plot(rr[1024,:],Fcor[1024,:],'b',label="Interpolated horiz. F-cor")
+        plt.plot(rr[:,1024],Fcor[:,1024],'r',label="Interpolated vert. F-cor")
+        plt.plot(r_C,np.power(10.,B_F1),'-o',label="Tabulated horiz. "+origin)
+        plt.plot(r_C,np.power(10.,B_F2),'-*',label="Tabulated vert.  "+origin)
+        plt.yscale('log')
+        plt.ylim(1e-9,1e-6)        
+        plt.xlim(0.0,3.0)
+        plt.legend()
+        plt.show()
+
+    return Fcor, origin, kind
+
+def remove_fcorona(smap, model='standard'):
+    """
+    Rimuove il modello di F-corona da una SunPy Map.
+    
+    Parameters
+    ----------
+    smap  : sunpy.map.GenericMap
+    model : 'standard' (Koutchmy 2000) o 'Allen' (Allen 1977)
+    
+    Returns
+    -------
+    smap_kcorona : SunPy Map con F-corona sottratta
+    smap_fcorona : SunPy Map della F-corona sottratta
+    """
+    
+    data = smap.data
+    header = smap.meta
+
+    pixscale = header['CDELT1']
+    CRPIX1   = header['CRPIX1']
+    CRPIX2   = header['CRPIX2']
+    #CRPIX1   = header['X_IO']-1.0  # !!!! to put back !!!! header['CRPIX1']-1.0            # these are center of the Sun in the image, re-centered during l3_merge
+    #CRPIX2   = header['Y_IO']-1.0  # header['CRPIX2']-1.0
+    RSUN_ARC = header['RSUN_ARC'] 
+
+    ny, nx = data.shape
+    xx = np.outer(np.ones(ny),  np.arange(nx) - (CRPIX1 - 1)) * pixscale / RSUN_ARC
+    yy = np.outer(np.arange(ny) - (CRPIX2 - 1), np.ones(nx)) * pixscale / RSUN_ARC
+    
+    #Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model='simple_sh')  ### --- Sergei's data were created with Allen model ### ,verbose=True --- with plots
+    Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model=model)    ### --- Koutchmy et al 2002  ### ,verbose=True --- with plots
+    new_data=data-Fcor
+
+    smap_kcorona = sunpy.map.Map(new_data, smap.meta)
+    smap_fcorona = sunpy.map.Map(Fcor, smap.meta)
+
+    return smap_kcorona, smap_fcorona

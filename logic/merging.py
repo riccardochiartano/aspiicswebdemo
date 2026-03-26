@@ -409,22 +409,13 @@ def merge_rob(
     #header1.set('FLT_TEST',float("{:.3f}".format(109.123456568)))
 
     headerM.set('HISTORY',"File01: "+os.path.basename(file01))
-    try:
-        headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header01['X_IO'],header01['Y_IO']))
-    except:
-        headerM.set('HISTORY','No IO infos')
+    headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header01['X_IO'],header01['Y_IO']))
     if nfiles >= 2:
         headerM.set('HISTORY',"File1: " +os.path.basename(file1))
-        try:
-            headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header1['X_IO'],header1['Y_IO']))
-        except:
-            headerM.set('HISTORY','No IO infos')
+        headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header1['X_IO'],header1['Y_IO']))
     if nfiles == 3:
         headerM.set('HISTORY',"File 10 "+os.path.basename(file10))
-        try:
-            headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header10['X_IO'],header10['Y_IO']))
-        except:
-            headerM.set('HISTORY','No IO infos')
+        headerM.set('HISTORY','  IO position {:.2f}/{:.2f}'.format(header10['X_IO'],header10['Y_IO']))
 
     ## ************* write down the final Im into fits ****
     hdu=fits.PrimaryHDU(Im_out,header=headerM)
