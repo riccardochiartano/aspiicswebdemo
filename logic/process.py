@@ -14,8 +14,10 @@ def wow_filter(smap):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        clean_data = np.nan_to_num(smap.data, nan=np.nanmedian(smap.data))
-        clean_map = sunpy.map.Map(clean_data.astype('float'), smap.meta)
+        median_val = np.nanmedian(smap.data)
+        clean_data = np.nan_to_num(smap.data, nan=median_val).astype(np.float64)
+        clean_data[clean_data < 0] = 0
+        clean_map = sunpy.map.Map(clean_data, smap.meta)
         wow_map = enhance.wow(
             clean_map,
             bilateral=1,
