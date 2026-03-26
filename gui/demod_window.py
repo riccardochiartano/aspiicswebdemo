@@ -276,7 +276,7 @@ def demodulation_window():
                 if st.session_state.get("current_map") is None and maps:
                     st.session_state.current_map = maps['I']
 
-            st.success('Demodulation finished, go to "Map" tab to see the results.')
+            st.success('Demodulation finished, go to "Main" tab to see the results.')
 
         if "demod_maps" in st.session_state:
             with st.expander("Files:", expanded=True):
