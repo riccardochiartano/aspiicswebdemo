@@ -12,7 +12,7 @@ import os
 import datetime
 
 from logic.merging import merge, merge_rob
-from logic.utils import download_map_btn, download_all_maps_btn, get_filter, calibrate, aspiics_files_url
+from logic.utils import download_map_btn, download_all_maps_btn, get_filter, calibrate, aspiics_files_url, aspiics_files_api
 from logic.plot import plot_map
 from logic.calibration import calibrate_rob
 
@@ -288,6 +288,120 @@ def do_calib_rob(unit):
     return map_dict
 
 def show_webloader():
+    st.subheader('Upload from web')
+    st.write('')
+    
+    level = st.radio("Level", ["L1"], horizontal=True, key=f'level_{tabname}')
+
+    if level != 'L3':
+        col, col1, col2, col3 = st.columns([1,1,1,1])
+        with col:
+            st.write('Filter')
+        with col1:
+            flt_wb = st.checkbox('Wideband', key=f'wb_{tabname}')    
+            flt_p2 = st.checkbox('Polarizer 0°', key=f'p2_{tabname}')    
+        with col2:
+            flt_fe = st.checkbox('Fe XIV', key=f'fe_{tabname}')
+            flt_p1 = st.checkbox('Polarizer 60°', key=f'p1_{tabname}')    
+        with col3:
+            flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
+            flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
+
+        #checkboxes = {
+        #    "wb": flt_wb,
+        #    "fe": flt_fe,
+        #    "he": flt_he,
+        #    "p1": flt_p1,
+        #    "p2": flt_p2,
+        #    "p3": flt_p3
+        #}
+        checkboxes = {
+            "Wide": flt_wb,
+            "Fe": flt_fe,
+            "He": flt_he,
+            "Polarizer%2060": flt_p1,
+            "Polarizer%200": flt_p2,
+            "Polarizer%20120": flt_p3
+        }
+    else:
+        col, col1, col2, col3 = st.columns([1,1,1,1])
+        with col:
+            st.write('Type')
+        with col1:
+            flt_bt = st.checkbox('Total brightness', key=f'bt_{tabname}')    
+        #    flt_p2 = st.checkbox('Polarizer 0°', key=f'p2_{tabname}')    
+        with col2:
+            flt_pb = st.checkbox('Polarized brightness', key=f'pb_{tabname}')
+        #    flt_p1 = st.checkbox('Polarizer 60°', key=f'p1_{tabname}')    
+        #with col3:
+        #    flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
+        #    flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
+
+        #checkboxes = {
+        #    "bt": flt_bt,
+        #    "pb": flt_pb,
+        #}
+        checkboxes = {
+            "Wide": flt_bt,
+            "0": flt_pb,
+        }
+
+    flt_list = [key for key, checked in checkboxes.items() if checked]
+
+    # if nothing checked -> 
+    if not flt_list:
+        flt_list = list(checkboxes.keys())
+
+
+    orbit_id = st.text_input("Orbit ID", "", key=f'oid_{tabname}')
+    cycle_id = st.text_input("Cycle ID (8 digits)", "", key=f'cid_{tabname}')
+    #seq_num = st.text_input("Sequence number", "")
+    #acq_num = st.text_input("Acquisition number", "")
+    #exp_num = st.text_input("Exposure number", "")
+
+    col1, col2 = st.columns([1,1])
+    with col1:
+        date_start = st.date_input("Start date", value=datetime.date(2025, 5, 1), format="DD.MM.YYYY", key=f'date_start_{tabname}')
+        date_end = st.date_input("End date", value=datetime.date(2026, 9, 1), format="DD.MM.YYYY", key=f'date_end_{tabname}')
+        #date_start = st.date_input("Start date", value=None, format="DD.MM.YYYY")
+        #date_end = st.date_input("End date", value=None, format="DD.MM.YYYY")
+    with col2:    
+        #time_start = st.time_input("Time", value=None, key='time_start', step=60)
+        #time_end = st.time_input("Time", value=None, key='time_end', step=60)
+        time_start = st.time_input("Time", datetime.time(0,0), step=600, key=f'time_start_{tabname}')
+        time_end = st.time_input("Time", datetime.time(23,59), step=600, key=f'time_end_{tabname}')
+    
+    limit = st.text_input("Limit query results:", "10", key=f'limit_{tabname}')
+
+    if st.button("Show files", key=f'shw_files_{tabname}'):
+    #    st.session_state.show_files = not st.session_state.show_files
+    #
+    #if st.session_state.show_files:
+        dt_start = datetime.datetime.combine(date_start, time_start)
+        dt_end = datetime.datetime.combine(date_end, time_end)
+            
+        #files_url = aspiics_files_url(flt_list, level, cycle_id, dt_start, dt_end)
+        files_url = aspiics_files_api(flt_list, level, orbit_id, cycle_id, dt_start, dt_end, limit)
+        if files_url == []:
+            st.error('No files with these keys...')
+        st.session_state.files_url = files_url
+        
+    if st.session_state.files_url:
+        st.write('Files found:')
+        selected_files = []
+        for f in st.session_state.files_url:
+            filename = f.split('/')[-1]
+            if st.checkbox(filename, key=f'{filename}_{tabname}'):
+                selected_files.append(f)
+
+        st.write("Selected files:", selected_files)
+        st.session_state.selected_files = selected_files
+
+        st.session_state[f"calib_files_path"] = selected_files
+        st.session_state[f"calib_files_name"] = [file.split('/')[-1] for file in selected_files]    
+
+
+def show_webloader_old():
     st.subheader('Upload from web')
     st.write('')
     
