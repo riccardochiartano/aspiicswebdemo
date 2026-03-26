@@ -35,7 +35,8 @@ def demodulation_window():
         st.divider()
 
         cal_mode = st.radio("Demodulation procedure:",
-            ["INAF", "ROB"],
+            #["INAF", "ROB"],
+            ["ROB"],
             horizontal=True,
             key="which_calib"
         )
