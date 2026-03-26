@@ -460,7 +460,7 @@ def show_webloader():
         flt_list = list(checkboxes.keys())
 
 
-    orbit_id = st.text_input("Orbit ID", "273", key=f'oid_{tabname}')
+    orbit_id = st.text_input("Orbit ID", "", key=f'oid_{tabname}')
     cycle_id = st.text_input("Cycle ID (8 digits)", "", key=f'cid_{tabname}')
     #seq_num = st.text_input("Sequence number", "")
     #acq_num = st.text_input("Acquisition number", "")
