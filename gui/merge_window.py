@@ -30,12 +30,14 @@ def merge_window():
 
     with col_main:
         st.subheader("Merging")
-        st.write('Use l1 files for the INAF procedure, l2 files for the ROB one.')
+        #st.write('Use l1 files for the INAF procedure, l2 files for the ROB one.')
+        st.write('Use l2 files.')
         
         st.divider()
     
         merge_mode = st.radio("Merging procedure:",
-            ["INAF", "ROB (L2 files)"],
+            #["INAF", "ROB (L2 files)"],
+            ["ROB (L2 files)"],
             horizontal=True,
             key="which_merge"
         )
