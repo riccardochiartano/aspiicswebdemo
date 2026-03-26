@@ -30,7 +30,8 @@ def demodulation_window():
 
     with col_main:
         st.subheader("Demodulation")
-        st.write('Upload l1 files. (l2 and l3 files work only for ROB pipeline)')
+        #st.write('Upload l1 files. (l2 and l3 files work only for ROB pipeline)')
+        st.write('Upload l2 (or l2 merged) files.')
 
         st.divider()
 
@@ -434,7 +435,7 @@ def show_webloader():
     st.write('')
 
     #level = st.radio("Level", ["L1", "L2"], horizontal=True, key=f'level_{tabname}')
-    level = st.radio("Level", ["L1"], horizontal=True, key=f'level_{tabname}')
+    level = st.radio("Level", ["L2"], horizontal=True, key=f'level_{tabname}')
 
     cycle_id = st.text_input("Cycle ID (8 digits)", "1560607E", key=f'cid_{tabname}')
     #seq_num = st.text_input("Sequence number", "")
