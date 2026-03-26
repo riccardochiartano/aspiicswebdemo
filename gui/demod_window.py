@@ -44,7 +44,7 @@ def demodulation_window():
         st.divider()
         
         # rimetti il true quando hai finito prove (per avere file demod di default)
-        if False:
+        if True:
             angles = ["0°", "60°", "120°"]
             p_files = ['p2', 'p1', 'p3']
 
