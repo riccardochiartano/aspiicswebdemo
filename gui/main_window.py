@@ -130,7 +130,8 @@ def SolarMapViewer():
                       #"MGN", 
                       #"WOW filter", 
                       "Unsharp masking", 
-                      #"NRGF filter (Slow)"],
+                      #"NRGF filter (Slow)"
+                    ],
                     horizontal=True,
                     label_visibility='collapsed'  
                 )
