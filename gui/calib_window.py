@@ -158,9 +158,7 @@ def calib_window():
         st.divider()
 
         calib_unit = st.radio("Measure unit:",
-                ["MSB"],
-                ["DN/s"],
-                ["ph/(s cm^2 sr)"],
+                ["MSB", "DN/s", "ph/(s cm^2 sr)"],
                 horizontal=True,
                 key="calib_measure_unit"
             )
