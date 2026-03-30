@@ -242,7 +242,7 @@ def demodulation_window():
         st.divider()
 
         calib_unit = st.radio("Measure unit:",
-                ["DN/s", "ph/(s cm^2 sr)", "MSB"],
+                ["MSB", "DN/s", "ph/(s cm^2 sr)"],
                 horizontal=True,
                 key="demod_measure_unit"
             )
