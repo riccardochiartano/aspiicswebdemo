@@ -632,6 +632,32 @@ def demodulate_rob(maps,
     map_alpha = sunpy.map.Map(alpha, header_alpha)
     map_pB = sunpy.map.Map(pB, header_pB)
 
+    header_Q = header1.copy()
+    header_Q.set('PROD_ID',"Q",after='LEVEL')
+    header_Q.set('BTYPE','Q brightness','for polarized data - B, pB, alpha',before='BUNIT')
+    header_Q.set('BUNIT',unit,'here MSB referes to B')
+    header_Q.set('FILTER','0, 60, 120','Spectral passband corresponds to WB')
+    header_Q.set('POLAR','                  ','Removed after pol.processing')
+
+    header_U = header1.copy()
+    header_U.set('PROD_ID',"U",after='LEVEL')
+    header_U.set('BTYPE','U brightness','for polarized data - B, pB, alpha',before='BUNIT')
+    header_U.set('BUNIT',unit,'here MSB referes to B')
+    header_U.set('FILTER','0, 60, 120','Spectral passband corresponds to WB')
+    header_U.set('POLAR','                  ','Removed after pol.processing')
+
+    file2write_Q     = os.path.splitext(os.path.basename(file1))[0]+'.Q.fits'         # 'output_totalB.fits'
+    file2write_U    = os.path.splitext(os.path.basename(file1))[0]+'.U.fits'             # 'output_pB.fits'
+    file2write_Q    =file2write_Q.replace("l2","l3")
+    file2write_U   =file2write_U.replace("l2","l3")
+
+    header_Q['FILENAME'] = file2write_Q
+    header_U['FILENAME'] = file2write_U
+
+    map_Q = sunpy.map.Map(Q, header_Q)
+    map_U = sunpy.map.Map(U, header_U)
+
+
     #### ************* write down the final Im into fits ****
     #hdu_I=fits.PrimaryHDU(I,header=header_I)
     #if os.path.isfile(file2write_I):
@@ -657,7 +683,9 @@ def demodulate_rob(maps,
     maps_dict = {
         'I': map_I,
         'pB': map_pB,
-        'AoLP': map_alpha
+        'AoLP': map_alpha,
+        'Q': map_Q,
+        'U': map_U,
     }
 
     return maps_dict
