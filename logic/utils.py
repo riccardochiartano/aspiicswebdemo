@@ -403,10 +403,26 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
     start_dt = start_dt.isoformat()
     end_dt = end_dt.isoformat()
     
+    #if cycle_id:
+    #    if orbit_id:
+    #        final_keywords = f"and(and(and({filters},orbit_id.eq.{orbit_id}),CYCLE_ID.eq.{cycle_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+    #    else:
+    #        final_keywords = f"and(and({filters},CYCLE_ID.eq.{cycle_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+    #elif orbit_id:
+    #    final_keywords = f"and(and({filters},orbit_id.eq.{orbit_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+    #else:
+    #    final_keywords = f"and({filters},and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+
+    conditions = [
+        filters,
+        f"DATE-OBS.gt.{start_dt}",
+        f"DATE-OBS.lt.{end_dt}"
+    ]
+    if orbit_id:
+        conditions.append(f"orbit_id.eq.{orbit_id}")
     if cycle_id:
-        final_keywords = f"and(and(and({filters},orbit_id.eq.{orbit_id}),cycle_id.eq.{cycle_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
-    else:
-        final_keywords = f"and(and({filters},orbit_id.eq.{orbit_id}),and(DATE-OBS.gt.{start_dt},DATE-OBS.lt.{end_dt}))"
+        conditions.append(f"CYCLE_ID.eq.{cycle_id}")
+    final_keywords = f"and({','.join(conditions)})"
     
     # limit the amount of results
     limit_str = f"limit={limit}"
@@ -419,11 +435,20 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
     fileURLList = []
     baseDataURL = "https://p3sc.oma.be/datarepfiles"
     fileLevel = level
-    for item in data:
-        file_name = item['name']
-        file_version = item['version']
-        file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{file_name}"
-        fileURLList.append(file_url)
+    #st.write(type(data))
+    if isinstance(data, list):
+        for item in data:
+            file_name = item['name']
+            file_version = item['version']
+            file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{file_name}"
+            fileURLList.append(file_url)
+    else:
+        if data.get('message'):
+            st.error(f'Error: {data.get('message')}')
+            fileURLList=[]
+        else:
+            st.error(f'Error: "No files with those keywords"')
+            fileURLList=[]
     #st.write(fileURLList)
     return fileURLList
 

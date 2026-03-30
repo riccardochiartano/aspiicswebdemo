@@ -490,8 +490,8 @@ def show_webloader():
             
         #files_url = aspiics_files_url(flt_list, level, cycle_id, dt_start, dt_end)
         files_url = aspiics_files_api(flt_list, level, orbit_id, cycle_id, dt_start, dt_end, limit)
-        if files_url == []:
-            st.error('No files with these keys...')
+        #if files_url == []:
+        #    st.error('No files with these keys...')
         st.session_state.files_url = files_url
         
     if st.session_state.files_url:
