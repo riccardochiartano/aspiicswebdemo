@@ -171,7 +171,7 @@ def demodulation_window():
 
         st.divider()
 
-        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check_dem")
 
         st.divider()
 
