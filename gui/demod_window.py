@@ -171,10 +171,6 @@ def demodulation_window():
 
         st.divider()
 
-        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check_dem")
-
-        st.divider()
-
         if cal_mode == 'INAF':
 
             default_matrices = {
@@ -250,6 +246,10 @@ def demodulation_window():
                 horizontal=True,
                 key="demod_measure_unit"
             )
+
+        st.divider()
+
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check_dem")
 
         st.divider()
 
