@@ -61,7 +61,7 @@ def download_map_btn(map, label = "💾 Download map FITS", file_name = None):
             mime="application/fits"
         )
 
-def download_all_maps_btn(maps_dict, label='💾 Download demodulated maps (.zip)', zipname='demodulated_maps.zip'):
+def download_all_maps_btn(maps_dict, label='💾 Download demodulated maps (.zip)', zipname='demodulated_maps.zip', unique_id='demod_downl'):
     if not maps_dict:
         st.warning("No map to download.")
         return
@@ -69,7 +69,7 @@ def download_all_maps_btn(maps_dict, label='💾 Download demodulated maps (.zip
     if "zip_ready" not in st.session_state:
         st.session_state.zip_ready = False
 
-    if st.button("📦 Create ZIP archive"):
+    if st.button("📦 Create ZIP archive", key=f"zip_btn_{unique_id}"):
         with st.spinner("Creating the ZIP file..."):
             zip_buffer = BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:

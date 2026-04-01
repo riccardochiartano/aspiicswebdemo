@@ -208,7 +208,7 @@ def calib_window():
             map = next(iter(map_dict.values()))
             st.pyplot(plot_map(map))
             if len(map_dict.items()) > 1:
-                download_all_maps_btn(map_dict, label="💾 Download calibrated maps (.zip)", zipname="calibrated.zip")
+                download_all_maps_btn(map_dict, label="💾 Download calibrated maps (.zip)", zipname="calibrated.zip", unique_id='calibr_downl')
             else:
                 download_map_btn(map)
             return
