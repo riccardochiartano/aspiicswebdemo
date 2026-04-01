@@ -42,8 +42,6 @@ def merge_window():
             key="which_merge"
         )
 
-        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
-
         st.divider()
         
         col1, col2 = st.columns([2, 3])
@@ -79,6 +77,9 @@ def merge_window():
         if st.session_state.load_web_merge:
             show_webloader()
         
+        st.divider()
+
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
 
         st.divider()
 

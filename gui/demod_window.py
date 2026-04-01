@@ -42,8 +42,6 @@ def demodulation_window():
             key="which_calib"
         )
 
-        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check_dem")
-
         st.divider()
         
         # rimetti il true quando hai finito prove (per avere file demod di default)
@@ -170,6 +168,10 @@ def demodulation_window():
                 
                 st.session_state[f"{key}_path"] = tmp_path              # percorso reale 
                 st.session_state[f"{key}_name"] = uploaded_file.name    # nome originale 
+
+        st.divider()
+
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
 
         st.divider()
 
