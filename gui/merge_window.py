@@ -42,6 +42,8 @@ def merge_window():
             key="which_merge"
         )
 
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
+
         st.divider()
         
         col1, col2 = st.columns([2, 3])
@@ -212,7 +214,7 @@ def merge_window():
                                 val = st.session_state[key_path]
                                 st.write(f"{name}: {val}")
 
-                map = do_merge_rob()
+                map = do_merge_rob(rotate=not(rotate_merged))
             
                 st.pyplot(plot_map(map))
                 download_map_btn(map)
@@ -244,7 +246,7 @@ def do_merge(unit):
 
     return calibrated_map
     
-def do_merge_rob(unit='MSB'):
+def do_merge_rob(unit='MSB', rotate=True):
 
     keys_order = [
         "files", "bias_A", "bias_B", "dark_A2", "dark_B2", "dark_C2", "flat"
@@ -272,7 +274,7 @@ def do_merge_rob(unit='MSB'):
                 files_name[key] = val  
 
     # merging
-    merged_map = merge_rob(files['files'])
+    merged_map = merge_rob(files['files'], docenter=rotate)
     #filter = files['flat'].split('/')[-1].split('.')[0].split('_')[-1]
     #calibrated_map = calibrate(merged_map, filter, unit)
 

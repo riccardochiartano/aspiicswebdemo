@@ -347,6 +347,12 @@ def merge_rob(
             print("  ************************** file10 ************************** ")
             data10 = am.rotate_center1(data10,header10,verbose=True)
             headerRef=header10.copy()
+    else:
+        headerRef=header01.copy()
+        if nfiles >= 2:
+            headerRef=header1.copy()
+        if nfiles == 3:
+            headerRef=header10.copy()    
 
     if coalign == True:
         if nfiles == 2:

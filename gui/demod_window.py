@@ -42,6 +42,8 @@ def demodulation_window():
             key="which_calib"
         )
 
+        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check_dem")
+
         st.divider()
         
         # rimetti il true quando hai finito prove (per avere file demod di default)
@@ -270,7 +272,7 @@ def demodulation_window():
                 if cal_mode == 'INAF':
                     maps = demodulation(calib_unit)
                 if cal_mode == 'ROB':
-                    maps = demodulation_rob(calib_unit)
+                    maps = demodulation_rob(calib_unit, rotate=not(rotate_merged))
                 st.session_state["demod_maps"] = maps
 
                 if st.session_state.get("current_map") is None and maps:
@@ -353,7 +355,7 @@ def demodulation(unit):
 
     return maps
 
-def demodulation_rob(unit):
+def demodulation_rob(unit, rotate=True):
 
     keys_order = [
         "files_0°", "files_60°", "files_120°",
@@ -426,7 +428,7 @@ def demodulation_rob(unit):
                    st.session_state["pol 60°_path"], 
                    st.session_state["pol 120°_path"]]
 
-    maps = demodulate_rob(calibrated_maps, polar_files)
+    maps = demodulate_rob(calibrated_maps, polar_files, docenter=rotate)
 
     return maps
 
