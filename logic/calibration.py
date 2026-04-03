@@ -188,7 +188,7 @@ def calibrate_rob(
     ### Do not forget to uncomment vignetting below                                                    ###
     Im   = np.divide(Im,            flat*(Aphot/gain*t_exp))           # here convert units to [MSB] (analog of [photon s-1 cm-2 sr-1]), as the gain was taken into account before
     Var  = np.divide(Var, np.square(flat*Aphot/gain*t_exp))
-    if header.get('door_pos', '') != 'closed':
+    if header.get('door_pos', '') == 'open':
         tmpY,tmpZ = opse.aspiics_get_opse(Im,header,params,verbose=False,save_image=True)        # find position of the OPSE LEDs in the image
     #sys.exit('exiting after OPSE')
     #Im   = np.subtract(Im,optics.ghost(header,params))
