@@ -429,6 +429,10 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
 
     #generate the final url
     apiQuery = f"{baseAPI}{level}?{select}&{version}&{order}&and=(active.eq.true,{final_keywords})&{limit_str}"
+    #headers = {
+    #    'User-Agent': 'ASPIICS-Web-Demo/1.1 (Contact: riccardo.chiartano@inaf.it)'
+    #}
+    #response = requests.get(apiQuery, headers=headers)
     response = requests.get(apiQuery)
     data = response.json()
     st.write(apiQuery)
