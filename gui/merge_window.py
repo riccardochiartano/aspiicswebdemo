@@ -56,7 +56,8 @@ def merge_window():
                 type=["fits"],
                 key=f"merge_uploader",
                 accept_multiple_files=True,
-                label_visibility="collapsed"
+                label_visibility="collapsed",
+                help='If more than three files are uploaded, it groups them using filter and cycle_id.'
             )
 
         if uploaded_merge_files:
@@ -260,38 +261,41 @@ def do_merge_rob(unit='MSB', rotate=True):
     all_files = st.session_state.get("merge_files_path", [])
     all_names = st.session_state.get("merge_files_name", [])
     
-    groups = defaultdict(list)
+    if len(all_files) > 3:
+        groups = defaultdict(list)
 
-    for path, name in zip(all_files, all_names):
-        parts = name.split('_')
-        
-        try:
-            # Estrattore basato sulla tua logica:
-            # 1. Filtro: dopo il primo '_' (indice 1)
-            # 2. Cycle ID: dopo il terzo '_' (indice 3), prime 8 cifre
-            flt = parts[1]
-            cyc_id = parts[3][:8]
+        for path, name in zip(all_files, all_names):
+            parts = name.split('_')
             
-            group_key = (flt, cyc_id)
-            groups[group_key].append(path)
-            
-        except IndexError:
-            st.error(f"Not standard filename: {name}")
-            continue
+            try:
+                flt = parts[1]
+                cyc_id = parts[3][:8]
+                
+                group_key = (flt, cyc_id)
+                groups[group_key].append(path)
+                
+            except IndexError:
+                st.error(f"Not standard filename: {name}")
+                continue
 
-    # Esecuzione del merge per ogni gruppo trovato
-    map_dict = {}
-    for (flt, cid), files_in_group in groups.items():
-        st.info(f"Merging {len(files_in_group)} files for Filter: **{flt}**, Cycle: **{cid}**")
+        # Esecuzione del merge per ogni gruppo trovato
+        map_dict = {}
+        for (flt, cid), files_in_group in groups.items():
+            st.info(f"Merging {len(files_in_group)} files for Filter: **{flt}**, Cycle: **{cid}**")
 
-        try:
-            merged_map = merge_rob(files_in_group, docenter=rotate)
+            try:
+                merged_map = merge_rob(files_in_group, docenter=rotate)
 
-            map_name = merged_map.meta['filename'].split('.')[0]
-            map_dict[map_name] = merged_map
-            
-        except Exception as e:
-            st.error(f"Merging error in group {flt}_{cid}: {e}")
+                map_name = merged_map.meta['filename'].split('.')[0]
+                map_dict[map_name] = merged_map
+                
+            except Exception as e:
+                st.error(f"Merging error in group {flt}_{cid}: {e}")
+    else:
+        map_dict = {}
+        merged_map = merge_rob(all_files, docenter=rotate)
+        map_name = merged_map.meta['filename'].split('.')[0]
+        map_dict[map_name] = merged_map
 
     return map_dict
 
