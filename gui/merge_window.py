@@ -10,9 +10,10 @@ import tempfile
 import json
 import os
 import datetime
+from collections import defaultdict
 
 from logic.merging import merge, merge_rob
-from logic.utils import download_map_btn, get_filter, calibrate, aspiics_files_url, aspiics_files_api
+from logic.utils import download_map_btn, download_all_maps_btn, get_filter, calibrate, aspiics_files_url, aspiics_files_api
 from logic.plot import plot_map
 
 base_dir = Path(__file__).resolve().parent.parent
@@ -215,10 +216,17 @@ def merge_window():
                                 val = st.session_state[key_path]
                                 st.write(f"{name}: {val}")
 
-                map = do_merge_rob(rotate=not(rotate_merged))
-            
+                map_dict = do_merge_rob(rotate=not(rotate_merged))
+    
+                if len(map_dict.items()) > 1:
+                    st.warning('More than one file uploaded, showing only the first image.')
+                map = next(iter(map_dict.values()))
                 st.pyplot(plot_map(map))
-                download_map_btn(map)
+                
+                if len(map_dict.items()) > 1:
+                    download_all_maps_btn(map_dict, label='💾 Download all merged maps (.zip)', zipname='merged_maps.zip', unique_id='merged_downl')
+                else:
+                    download_map_btn(map)
             return
 
 
@@ -249,30 +257,58 @@ def do_merge(unit):
     
 def do_merge_rob(unit='MSB', rotate=True):
 
-    keys_order = [
-        "files", "bias_A", "bias_B", "dark_A2", "dark_B2", "dark_C2", "flat"
-    ]
+    all_files = st.session_state.get("merge_files_path", [])
+    all_names = st.session_state.get("merge_files_name", [])
+    
+    groups = defaultdict(list)
 
-    files = {}
-    files_name = {}
+    for path, name in zip(all_files, all_names):
+        parts = name.split('_')
+        
+        try:
+            # Estrattore basato sulla tua logica:
+            # 1. Filtro: dopo il primo '_' (indice 1)
+            # 2. Cycle ID: dopo il terzo '_' (indice 3), prime 8 cifre
+            flt = parts[1]
+            cyc_id = parts[3][:8]
+            
+            group_key = (flt, cyc_id)
+            groups[group_key].append(path)
+            
+        except IndexError:
+            st.error(f"Not standard filename: {name}")
+            continue
 
-    for key in keys_order:
-        session_key = f"merge_{key}_path"
-        session_name = f"merge_{key}_name"
-        if session_key in st.session_state:
-            val = st.session_state[session_key]
-            # per lista files
-            if isinstance(val, list):
-                files[key] = val
-            else:
-                files[key] = val  
-        if session_name in st.session_state:
-            val = st.session_state[session_name]
-            # per lista files name
-            if isinstance(val, list):
-                files_name[key] = val
-            else:
-                files_name[key] = val  
+    # Esecuzione del merge per ogni gruppo trovato
+    map_dict = {}
+    for (flt, cid), files_in_group in groups.items():
+        st.info(f"Merging {len(files_in_group)} files for Filter: **{flt}**, Cycle: **{cid}**")
+
+        try:
+            merged_map = merge_rob(files_in_group, docenter=rotate)
+
+            map_name = merged_map.meta['filename'].split('.')[0]
+            map_dict[map_name] = merged_map
+            
+        except Exception as e:
+            st.error(f"Merging error in group {flt}_{cid}: {e}")
+
+    return map_dict
+
+
+
+    if not all_files:
+        st.warning("No files.")
+        return None
+
+    try:
+        st.write(all_names)
+        merged_map = merge_rob(all_files, docenter=rotate)
+        return merged_map
+
+    except Exception as e:
+        st.error(f"Merging error: {e}")
+        return None
 
     # merging
     merged_map = merge_rob(files['files'], docenter=rotate)
