@@ -40,6 +40,8 @@ def SolarMapViewer():
         st.session_state.show_pprof = False
     if "show_shiftc" not in st.session_state:
         st.session_state.show_shiftc = False
+    if "show_grid" not in st.session_state:
+        st.session_state.show_grid = False
     if "files_url" not in st.session_state:
         st.session_state.files_url = None
     if "intplot" not in st.session_state:
@@ -143,6 +145,7 @@ def SolarMapViewer():
             with col1:
                 interactive_plot = st.checkbox('Interactive plot', key='chk_intplot', on_change=toggle_intplot)
                 rotate_map = st.checkbox('Rotate map', key='rotate_map_ckb', on_change=toggle_rotate)
+                show_grid = st.checkbox('Show grid', key='show_grid_ckb', on_change=toggle_grid)
             with col2:
                 show_header = st.checkbox('Show header', key='show_header_ckb', on_change=toggle_header)
                 show_radprofiles = st.checkbox('Show radial profiles', key='sh_rprof_ckb', on_change=toggle_rprof)
@@ -202,7 +205,8 @@ def SolarMapViewer():
                     fig_map, ax_map = plt.subplots(figsize=(6,6), subplot_kw={'projection': st.session_state.current_map.wcs})
                     im = map_plot.plot(axes=ax_map, clim=(vmin, vmax), cmap=aspiics_cmap_new(map_plot))
                     #im = ax_map.imshow(map_plot.data,origin='lower',vmin=vmin,vmax=vmax,cmap=aspiics_cmap_new(map_plot))
-                    ax_map.grid(True, ls='--', lw=0.4) 
+                    ax_map.grid(st.session_state.show_grid, ls='--', lw=0.4) 
+                    #ax_map.grid(True, ls='--', lw=0.4) 
                     #st.write(map_plot)
                     #ax_map.set_xlabel("Solar X [arcsec]")
                     #ax_map.set_ylabel("Solar Y [arcsec]")
@@ -394,6 +398,10 @@ def toggle_shiftc():
     st.session_state.show_shiftc = not st.session_state.show_shiftc
     if not(st.session_state.show_header):
         st.session_state.show_right_panel = not st.session_state.show_right_panel
+
+def toggle_grid():
+    st.session_state.show_grid = not st.session_state.show_grid
+
 
 def show_webloader():
     st.subheader('Upload from web')
