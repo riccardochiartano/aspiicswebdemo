@@ -41,7 +41,7 @@ def SolarMapViewer():
     if "show_shiftc" not in st.session_state:
         st.session_state.show_shiftc = False
     if "show_grid" not in st.session_state:
-        st.session_state.show_grid = False
+        st.session_state.show_grid = True
     if "files_url" not in st.session_state:
         st.session_state.files_url = None
     if "intplot" not in st.session_state:
@@ -145,7 +145,7 @@ def SolarMapViewer():
             with col1:
                 interactive_plot = st.checkbox('Interactive plot', key='chk_intplot', on_change=toggle_intplot)
                 rotate_map = st.checkbox('Rotate map', key='rotate_map_ckb', on_change=toggle_rotate)
-                show_grid = st.checkbox('Show grid', key='show_grid_ckb', on_change=toggle_grid)
+                show_grid = st.checkbox('Show grid', value=True, key='show_grid_ckb', on_change=toggle_grid)
             with col2:
                 show_header = st.checkbox('Show header', key='show_header_ckb', on_change=toggle_header)
                 show_radprofiles = st.checkbox('Show radial profiles', key='sh_rprof_ckb', on_change=toggle_rprof)
