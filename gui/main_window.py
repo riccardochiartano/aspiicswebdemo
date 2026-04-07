@@ -525,4 +525,21 @@ def show_webloader():
                     st.error('Select only one file')
         with col2:
             download_web_files_btn(selected_files, label='Download selected files')
-                    
+        
+    st.divider()
+    st.subheader('Upload using filename')
+    st.write('')
+
+    upl_filename = st.text_input("Filename:", "", key=f'ulfn_{tabname}', help="Must be the exact 'filename.fits'")
+
+    if st.button('Upload map', key=f'upload_map2_{tabname}'):
+        baseDataURL = "https://p3sc.oma.be/datarepfiles"
+        parts = upl_filename.split('_')
+        fileLevel = parts[2].upper()
+        file_version = 'v2'
+        file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{upl_filename}"
+        st.write(f'Link: {file_url}')
+        upl_map = sunpy.map.Map(file_url)
+        st.session_state.original_map = sunpy.map.Map(upl_map.data.astype('float'), upl_map.meta)
+        st.success(f"Loaded web file")
+        st.rerun()
