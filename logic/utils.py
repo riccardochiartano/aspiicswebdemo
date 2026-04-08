@@ -575,3 +575,35 @@ def remove_fcorona(smap, model='standard'):
     smap_fcorona = sunpy.map.Map(Fcor, smap.meta)
 
     return smap_kcorona, smap_fcorona
+
+def fcorona_removed_map(smap, model='standard'):
+    """
+    Rimuove il modello di F-corona da una Map ASPIICS in WBF o Total Brightness.
+    
+    Parameters
+    ----------
+    smap  : sunpy.map.GenericMap
+    model : 'standard' (Koutchmy 2000) o 'Allen' (Allen 1977)
+    
+    Returns
+    -------
+    smap_kcorona : SunPy Map con F-corona sottratta
+    """
+
+    smap_removed, _ = remove_fcorona(smap, model=model)
+    headerM = header_from_sunpymap(smap.meta)
+
+    headerM.set("HISTORY", "F-Corona removed using model"+model+" ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))")
+    headerM.set("HISTORY", "old filename: " + headerM["FILENAME"])
+
+    newname=headerM['filename'].split('.')[0]+'.fits'
+    if "l2" in newname:
+        newname=newname.replace("l2","l3")
+    if "wb" in newname:
+        newname=newname.replace("wb","bt")
+    headerM.set('FILENAME', newname)
+    st.write(newname)
+
+    smap_removed = sunpy.map.Map(smap_removed.data, headerM)
+
+    return smap_removed

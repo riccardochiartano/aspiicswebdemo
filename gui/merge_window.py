@@ -13,7 +13,7 @@ import datetime
 from collections import defaultdict
 
 from logic.merging import merge, merge_rob
-from logic.utils import download_map_btn, download_all_maps_btn, get_filter, calibrate, aspiics_files_url, aspiics_files_api
+from logic.utils import download_map_btn, download_all_maps_btn, get_filter, calibrate, aspiics_files_url, aspiics_files_api, fcorona_removed_map
 from logic.plot import plot_map
 
 base_dir = Path(__file__).resolve().parent.parent
@@ -80,8 +80,13 @@ def merge_window():
             show_webloader()
         
         st.divider()
-
-        rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
+        
+        col1, col2 = st.columns([2, 2])
+        
+        with col1:
+            rotate_merged = st.checkbox("Do not rotate", False, key="rotate_check")
+        with col2:
+            removef_merged = st.checkbox("Remove F-Corona", False, key="removef_check", help="For WBF L3 images. (if multiple files are uploaded it will apply only to 'wb' or 'bt' ones)")
 
         st.divider()
 
@@ -217,7 +222,7 @@ def merge_window():
                                 val = st.session_state[key_path]
                                 st.write(f"{name}: {val}")
 
-                map_dict = do_merge_rob(rotate=not(rotate_merged))
+                map_dict = do_merge_rob(rotate=not(rotate_merged), removef=removef_merged)
     
                 if len(map_dict.items()) > 1:
                     st.warning('More than one file uploaded, showing only the first image.')
@@ -256,7 +261,7 @@ def do_merge(unit):
 
     return calibrated_map
     
-def do_merge_rob(unit='MSB', rotate=True):
+def do_merge_rob(unit='MSB', rotate=True, removef=False):
 
     all_files = st.session_state.get("merge_files_path", [])
     all_names = st.session_state.get("merge_files_name", [])
@@ -278,7 +283,6 @@ def do_merge_rob(unit='MSB', rotate=True):
                 st.error(f"Not standard filename: {name}")
                 continue
 
-        # Esecuzione del merge per ogni gruppo trovato
         map_dict = {}
         for (flt, cid), files_in_group in groups.items():
             st.info(f"Merging {len(files_in_group)} files for Filter: **{flt}**, Cycle: **{cid}**")
@@ -286,7 +290,11 @@ def do_merge_rob(unit='MSB', rotate=True):
             try:
                 merged_map = merge_rob(files_in_group, docenter=rotate)
 
-                map_name = merged_map.meta['filename'].split('.')[0]
+                if removef:
+                    if flt == 'wb' or flt == 'bt':
+                        merged_map = fcorona_removed_map(merged_map, model='standard')
+
+                map_name = os.path.splitext(merged_map.meta['FILENAME'])[0]
                 map_dict[map_name] = merged_map
                 
             except Exception as e:
@@ -294,7 +302,11 @@ def do_merge_rob(unit='MSB', rotate=True):
     else:
         map_dict = {}
         merged_map = merge_rob(all_files, docenter=rotate)
-        map_name = merged_map.meta['filename'].split('.')[0]
+    
+        if removef:
+            merged_map = fcorona_removed_map(merged_map, model='standard')
+    
+        map_name = os.path.splitext(merged_map.meta['FILENAME'])[0]
         map_dict[map_name] = merged_map
 
     return map_dict
