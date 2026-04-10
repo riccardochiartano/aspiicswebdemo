@@ -151,7 +151,7 @@ def calib_window():
                 st.write(f"Path: `{st.session_state.calib_flat_path}`")
                 uploaded.append(False)
 
-        st.warning('ATTENTION: Flatfield files have different names, P1==Polarizer0==p2, P2==Polarizer60==p1, and P3=Polarizer120==p3')
+        #st.warning('ATTENTION: Flatfield files have different names, P1==Polarizer0==p2, P2==Polarizer60==p1, and P3=Polarizer120==p3')
 
         #st.info(f"**Using flatfield:** {os.path.basename(st.session_state.merge_flat_path)}")
 
