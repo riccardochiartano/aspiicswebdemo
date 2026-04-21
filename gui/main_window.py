@@ -16,6 +16,7 @@ from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_file
 from gui.profile_window import profile_window
 import logic.rob.aspiics_misc as am
 
+from resources.metismap.metis_map_vAB import METISMap
 
 tabname = 'main'
 
