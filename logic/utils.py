@@ -218,7 +218,7 @@ def radial_profile(solar_map, angle, start_rsun, end_rsun, ampl=np.deg2rad(1), n
     dy = (y - sun_y)
     r = np.sqrt(dx**2 + dy**2) * scale * u.arcsec
     #angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
-    angles_grid = np.mod(np.arctan2(dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
+    angles_grid = np.mod(np.arctan2(-dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
     
     angle_start, angle_end = angle - ampl/2, angle + ampl*2
     angle_mask = (angles_grid >= angle_start) & (angles_grid <= angle_end)
@@ -262,7 +262,7 @@ def polar_profile(solar_map, dist, first_angle, last_angle, n_angles=360, step_r
     dy = (y - sun_y)
     r = np.sqrt(dx**2 + dy**2) * scale * u.arcsec
     #angles_grid = np.mod(np.arctan2(dy, dx), 2*np.pi)
-    angles_grid = np.mod(np.arctan2(dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
+    angles_grid = np.mod(np.arctan2(-dx, dy), 2*np.pi)          # nord = 0 deg and counterclockwise
 
     r_in_arcsec = dist * rsun_arcsec
     r_out_arcsec = (dist + step_rsun) * rsun_arcsec

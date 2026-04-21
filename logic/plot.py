@@ -155,8 +155,8 @@ def plot_rprof(ax, solar_map, profiles):
         
         #angle_start = (angle - ampl/2)
         #angle_end = (angle + ampl/2)
-        angle_start = 90 - (angle + ampl/2)
-        angle_end = 90 - (angle - ampl/2)
+        angle_start = 90 + (angle - ampl/2)
+        angle_end = 90 + (angle + ampl/2)
 
         wedge = Wedge((sun_x, sun_y), 
                       r_out, 
@@ -178,8 +178,8 @@ def plot_pprof(ax, solar_map, profiles):
         r_out = r_in + width * rsun_arcsec / scale
         #angle_start = angles[0]
         #angle_end = angles[-1] 
-        angle_start = 90 - angles[-1]
-        angle_end = 90 - angles[0] 
+        angle_start = 90 + angles[0]
+        angle_end = 90 + angles[-1] 
 
         wedge = Wedge((sun_x, sun_y), 
                       r_out, 
