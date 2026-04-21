@@ -14,3 +14,4 @@ streamlit_plotly_events
 sunpy
 watroo==0.0.4
 opencv-python-headless
+cmcrameri
