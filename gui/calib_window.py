@@ -129,7 +129,8 @@ def calib_window():
                 "flatfield",
                 ["flatfield_P1", "flatfield_P2", "flatfield_P3", "flatfield_WB", 'flatfield_Fe', 'flatfield_He', 'Other'],
                 index=["flatfield_P1", "flatfield_P2", "flatfield_P3", "flatfield_WB", 'flatfield_Fe', 'flatfield_He', 'Other'].index(st.session_state.flat_choice),
-                key='calib_flat'
+                key='calib_flat',
+                help='p1==flatfield_P2, p2==flatfield_P1, p3==flatfield_P3, '
             )
 
         with col2:

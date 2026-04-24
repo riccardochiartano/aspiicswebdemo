@@ -141,9 +141,9 @@ def flat_many(header,params,**kwargs):
     elif filter=='Wideband':
        file='flatfield_WB.fits'
     elif filter=='Polarizer 60':
-       file='flatfield_P1.fits'
-    elif filter=='Polarizer 0':
        file='flatfield_P2.fits'
+    elif filter=='Polarizer 0':
+       file='flatfield_P1.fits'
     elif filter=='Polarizer 120':
        file='flatfield_P3.fits'
     
