@@ -564,8 +564,10 @@ def remove_fcorona(smap, model='standard'):
     RSUN_ARC = header['RSUN_ARC'] 
 
     ny, nx = data.shape
-    xx = np.outer(np.ones(ny),  np.arange(nx) - (CRPIX1 - 1)) * pixscale / RSUN_ARC
-    yy = np.outer(np.arange(ny) - (CRPIX2 - 1), np.ones(nx)) * pixscale / RSUN_ARC
+    #xx = np.outer(np.ones(ny),  np.arange(nx) - (CRPIX1 - 1)) * pixscale / RSUN_ARC
+    #yy = np.outer(np.arange(ny) - (CRPIX2 - 1), np.ones(nx)) * pixscale / RSUN_ARC
+    xx = np.outer(np.ones(2048),np.linspace(0,2047,num=2048)-CRPIX1) * pixscale / RSUN_ARC
+    yy = np.outer(np.linspace(0,2047,num=2048)-CRPIX2,np.ones(2048)) * pixscale / RSUN_ARC
     
     #Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model='simple_sh')  ### --- Sergei's data were created with Allen model ### ,verbose=True --- with plots
     Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model=model)    ### --- Koutchmy et al 2002  ### ,verbose=True --- with plots
