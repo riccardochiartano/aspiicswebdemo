@@ -282,7 +282,7 @@ def aspiics_cmap(map_plot):
     return cmap
 
 def aspiics_cmap_new(map_plot):
-    if "metis" in map_plot.meta["filename"]:
+    if "metis" in map_plot.meta.get("filename", ""):
         obsv = map_plot.observatory
         instr = map_plot.instrument
         prod = get_prodtype(map_plot)
@@ -297,7 +297,7 @@ def aspiics_cmap_new(map_plot):
 
     dir_cmaps = os.path.join(base_dir, 'resources', 'rob_calib_data')
     c_path = os.path.join(dir_cmaps, 'wb_colormap.txt')
-    filter = map_plot.meta.get('filename', '')
+    filter = map_plot.meta.get("filename", "")
     if 'pB' in filter or 'pb' in filter:
         c_path = os.path.join(dir_cmaps, 'p_colormap.txt')
     if 'fe' in filter:
