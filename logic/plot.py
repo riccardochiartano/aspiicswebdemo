@@ -234,6 +234,22 @@ def plot_onepprof(ax, solar_map, angles, width, dist, color='gray'):# profiles):
 
 ##############################
 
+def plot_stars(ax, catalog_stars):
+    offset_x = 10  
+    offset_y = 10
+    if not catalog_stars.empty:
+        ax.scatter(catalog_stars.xsensor, catalog_stars.ysensor,
+                s=80, edgecolors='orange', facecolors='none', 
+                linewidths=1, linestyle='--', alpha=0.8)
+        for i, row in catalog_stars.iterrows():
+            ax.text(row.xsensor + offset_x, row.ysensor + offset_y, 
+                    str(row.main_id), color='orange', fontsize=6, 
+                    alpha=0.7, clip_on=True)
+    else:
+        st.write('No stars in frame.')
+
+##############################
+
 def plot_map(map):
     #fig = plt.figure()
     #ax = fig.add_subplot(projection=map.wcs)
@@ -266,6 +282,13 @@ def aspiics_cmap(map_plot):
     return cmap
 
 def aspiics_cmap_new(map_plot):
+    if "metis" in map_plot.meta["filename"]:
+        obsv = map_plot.observatory
+        instr = map_plot.instrument
+        prod = get_prodtype(map_plot)
+        cmap_string = f"{obsv}{instr}{prod}".lower()
+        return metis_color_table(cmap_string)
+
     # if there's already a defined cmap
     if map_plot.plot_settings['cmap'] != 'gray':
         cmap = map_plot.plot_settings['cmap']
@@ -294,4 +317,148 @@ def aspiics_cmap_new(map_plot):
     cmap = ListedColormap(colortable, name="aspiics_cmap")
     cmap.set_bad('black')
     #cmap.set_bad(color=(0, 0, 0, 0))
+    return cmap
+
+
+def get_prodtype(smap):
+    """
+    Define the type of the Metis data product.
+
+    Returns
+    -------
+    prodtype : `str`
+        Name of the Metis data product.
+
+    """
+    
+    btype_suff_dict = {
+        'VL total brightness':             ('-TB', '-TB'), 
+        'VL polarized brightness':         ('-PB', '-PB'), 
+        'VL fixed-polarization intensity': ('-FP', '-Fix. Pol.'), 
+        'VL polarization angle':           ('-PA', '-Pol. Angle'), 
+        'Stokes I':                        ('-SI', '-Stokes I'), 
+        'Stokes Q':                        ('-SQ', '-Stokes Q'), 
+        'Stokes U':                        ('-SU', '-Stokes U'),
+        'Pixel quality':                   ('-PQ', '-Pixel quality'), 
+        'Absolute error':                  ('-AE', '-Abs. err.'),
+        'Relative error':                  ('-RE', '-Rel. err.'), #modAB2
+        'UV Lyman-alpha intensity':        ('', ''),
+    }
+    
+    btype = smap.meta['btype']
+    prodtype = smap.meta['filter']
+    
+    if btype in btype_suff_dict:
+        suff, nickname_add = btype_suff_dict[btype]
+        prodtype += suff
+        #smap._nickname += nickname_add 
+    else:
+        raise ValueError(
+            f"Error. smap.meta['btype']='{btype}' is not known."
+        ) 
+
+    return prodtype
+
+def metis_color_table(cmap_name):
+    """
+    Credits: V. Andretta, A. Liberatore, A. Burtovoi, G. Jerse
+    NB:
+     - Names from _get_cmap_name()_ should be defined in sunpy.visualization.colormaps.cm
+     - They can be in turn defined by calling metis_color_table() inserted in sunpy.visualization.colormaps.color_tables
+     - Current function is a prototype of function which should be inserted in sunpy.visualization.colormaps.color_tables
+     - [?] Should we define different colormaps for L0 and L1?
+    """
+    ### Temporary imports ###
+    import matplotlib
+    import sunpy.visualization.colormaps as cm
+    import cmcrameri
+
+    #st.write(cmap_name)
+
+    if cmap_name == 'solar orbitermetisvl-tb':
+# #         aia_wave_dict = create_aia_wave_dict()
+#         aia_wave_dict = cm.color_tables.create_aia_wave_dict()  # temp
+#         r, g, b = aia_wave_dict[193*u.angstrom]
+#         cmap = cm.color_tables._cmap_from_rgb(
+#             r, g, b, 'SolO Metis VL Total Brightness'
+#         )
+        #cmap = matplotlib.colormaps['pink'].copy()  # ASk Vincenzo ???  # np.savetxt('py_cmap_pink.csv', np.array(cmap.colors)*255, delimiter=',')
+        #cmap = cmcrameri.cm.batlow.copy()
+        cmap = cmcrameri.cm.batlow.copy()
+        # chk also Stokes I
+        cmap.name =  'SolO Metis VL Total Brightness'
+        
+    elif cmap_name == 'solar orbitermetisvl-pb':
+        '''
+        Metis VL/pB images uses AIA color table
+        '''
+#         aia_wave_dict = create_aia_wave_dict()
+        aia_wave_dict = cm.color_tables.create_aia_wave_dict()  # temp
+        r, g, b = aia_wave_dict[304*u.angstrom]
+        cmap = cm.color_tables._cmap_from_rgb(
+            r, g, b, 'SolO Metis VL Polarized Brightness'
+        )
+
+    elif cmap_name == 'solar orbitermetisvl-fp':
+        r = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 32, 34, 35, 36, 36, 38, 39, 40, 40, 42, 43, 44, 44, 46, 47, 48, 48, 50, 51, 52, 52, 54, 55, 56, 56, 58, 59, 60, 60, 62, 63, 64, 65, 65, 67, 68, 69, 70, 71, 72, 73, 73, 75, 76, 77, 78, 79, 80, 81, 81, 83, 84, 85, 86, 87, 88, 89, 89, 91, 92, 93, 94, 95, 96, 97, 97, 99, 100, 101, 102, 103, 104, 105, 105, 107, 108, 109, 110, 111, 112, 113, 113, 115, 116, 117, 118, 119, 120, 121, 121, 123, 124, 125, 126, 127, 128, 129, 130, 131, 131, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 147, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 163, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 179, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 195, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 227, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 243, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255])
+        g = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 32, 34, 35, 36, 36, 38, 39, 40, 40, 42, 43, 44, 44, 46, 47, 48, 48, 50, 51, 52, 52, 54, 55, 56, 56, 58, 59, 60, 60, 62, 63, 64, 65, 65, 67, 68, 69, 70, 71, 72, 73, 73, 75, 76, 77, 78, 79, 80, 81, 81, 83, 84, 85, 86, 87, 88, 89, 89, 91, 92, 93, 94, 95, 96, 97, 97, 99, 100, 101, 102, 103, 104, 105, 105, 107, 108, 109, 110, 111, 112, 113, 113, 115, 116, 117, 118, 119, 120, 121, 121, 123, 124, 125, 126, 127, 128, 129, 130, 131, 131, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 147, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 163, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 179, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 195, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 227, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 243, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255])
+        b = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 32, 34, 35, 36, 36, 38, 39, 40, 40, 42, 43, 44, 44, 46, 47, 48, 48, 50, 51, 52, 52, 54, 55, 56, 56, 58, 59, 60, 60, 62, 63, 64, 65, 65, 67, 68, 69, 70, 71, 72, 73, 73, 75, 76, 77, 78, 79, 80, 81, 81, 83, 84, 85, 86, 87, 88, 89, 89, 91, 92, 93, 94, 95, 96, 97, 97, 99, 100, 101, 102, 103, 104, 105, 105, 107, 108, 109, 110, 111, 112, 113, 113, 115, 116, 117, 118, 119, 120, 121, 121, 123, 124, 125, 126, 127, 128, 129, 130, 131, 131, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 147, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 163, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 179, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 195, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 211, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 227, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 243, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255])
+        cmap = cm.color_tables._cmap_from_rgb(
+            r, g, b, 'SolO Metis VL Fixed Polarization'
+        )
+
+    elif cmap_name == 'solar orbitermetisvl-pa':
+        cmap = matplotlib.colormaps['viridis'].copy()
+        cmap.name =  'SolO Metis VL Polarization Angle'
+
+    elif cmap_name == 'solar orbitermetisvl-si':
+        #cmap = matplotlib.colormaps['pink'].copy()  # ASk Vincenzo ???  # np.savetxt('py_cmap_pink.csv', np.array(cmap.colors)*255, delimiter=',')
+        cmap = cmcrameri.cm.batlow.copy()
+        cmap.name =  'SolO Metis VL Stokes I'
+
+    elif cmap_name == 'solar orbitermetisvl-sq':
+        cmap = matplotlib.colormaps['viridis'].copy()
+        cmap.name =  'SolO Metis VL Stokes Q'
+
+    elif cmap_name == 'solar orbitermetisvl-su':
+        cmap = matplotlib.colormaps['viridis'].copy()
+        cmap.name =  'SolO Metis VL Stokes U'
+
+    elif cmap_name == 'solar orbitermetisvl-pq':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also UV PQ
+        cmap.name =  'SolO Metis VL Pixel Quality'
+
+    elif cmap_name == 'solar orbitermetisvl-ae':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also UV AE
+        cmap.name =  'SolO Metis VL Absolute Error'
+
+    elif cmap_name == 'solar orbitermetisvl-re':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also UV RE
+        cmap.name =  'SolO Metis VL Relative Error'
+        
+    elif cmap_name == 'solar orbitermetisuv':
+        cmap = matplotlib.colormaps['Blues_r'].copy()  # Blues_r, PuBu, BuGn
+        cmap.name =  'SolO Metis UV'
+
+    elif cmap_name == 'solar orbitermetisuv-pq':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also VL PQ
+        cmap.name =  'SolO Metis UV Pixel Quality'
+
+    elif cmap_name == 'solar orbitermetisuv-ae':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also VL AE
+        cmap.name =  'SolO Metis UV Absolute Error'
+
+    elif cmap_name == 'solar orbitermetisuv-re':
+        cmap = matplotlib.colormaps['plasma'].copy()  # cividis, plasma
+        # chk also VL RE
+        cmap.name =  'SolO Metis UV Relative Error'
+
+
+    cmap.set_bad(color='k')
+    
     return cmap

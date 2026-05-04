@@ -2,6 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 import sunpy.map
+from sunpy.map import GenericMap
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
@@ -11,12 +12,13 @@ import datetime
 from streamlit_plotly_events import plotly_events
 
 from logic.process import wow_filter, log_scale, nrgf_filter, mgn_filter, unsharp_mask_filter
-from logic.plot import plot_profile, aspiics_cmap, aspiics_cmap_new, plot_NE_labels, plot_pprof, plot_rprof
-from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_files_url, aspiics_files_api, download_web_files_btn, header_from_sunpymap
+from logic.plot import plot_profile, aspiics_cmap, aspiics_cmap_new, plot_NE_labels, plot_pprof, plot_rprof, plot_stars
+from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_files_url, aspiics_files_api, download_web_files_btn, header_from_sunpymap, search_stars
 from gui.profile_window import profile_window
 import logic.rob.aspiics_misc as am
 
-from resources.metismap.metis_map_vAB import METISMap
+#from resources.metismap.metis_map_vAB import METISMap
+
 
 tabname = 'main'
 
@@ -51,6 +53,8 @@ def SolarMapViewer():
         st.session_state.rotate_map = False
     if "xy_diff" not in st.session_state:
         st.session_state.xy_diff = None
+    if 'stars' not in st.session_state:
+        st.session_state.stars = None
  
     if st.session_state.show_right_panel:
         col_left, col_main, _, col_right = st.columns([1, 10, 1, 8])
@@ -139,21 +143,68 @@ def SolarMapViewer():
                     label_visibility='collapsed'  
                 )
             with col2:
-                st.space(21)
-                shift_c = st.checkbox('Shift solar center', key='shiftc_ckb', on_change=toggle_shiftc)
+                st.space(2)
 
-            col1, col2, col3 = st.columns([1,1,1])
-            with col1:
-                interactive_plot = st.checkbox('Interactive plot', key='chk_intplot', on_change=toggle_intplot)
-                rotate_map = st.checkbox('Rotate map', key='rotate_map_ckb', on_change=toggle_rotate)
-                show_grid = st.checkbox('Show grid', value=True, key='show_grid_ckb', on_change=toggle_grid)
-            with col2:
-                show_header = st.checkbox('Show header', key='show_header_ckb', on_change=toggle_header)
-                show_radprofiles = st.checkbox('Show radial profiles', key='sh_rprof_ckb', on_change=toggle_rprof)
-            with col3:
-                show_NE_labels = st.checkbox('Show N-E labels', key='show_NE_ckb', on_change=toggle_NE)
-                show_polprofiles = st.checkbox('Show polar profiles', key='sh_pprof_ckb', on_change=toggle_pprof)
+            #col1, col2, col3 = st.columns([1,1,1])
+            #with col1:
+            #    interactive_plot = st.checkbox('Interactive plot', key='chk_intplot', on_change=toggle_intplot)
+            #    rotate_map = st.checkbox('Rotate map', key='rotate_map_ckb', on_change=toggle_rotate)
+            #    show_grid = st.checkbox('Show grid', value=True, key='show_grid_ckb', on_change=toggle_grid)
+            #with col2:
+            #    show_header = st.checkbox('Show header', key='show_header_ckb', on_change=toggle_header)
+            #    show_radprofiles = st.checkbox('Show radial profiles', key='sh_rprof_ckb', on_change=toggle_rprof)
+            #with col3:
+            #    show_NE_labels = st.checkbox('Show N-E labels', key='show_NE_ckb', on_change=toggle_NE)
+            #    show_polprofiles = st.checkbox('Show polar profiles', key='sh_pprof_ckb', on_change=toggle_pprof)
+            
+            #with col1:
+            st.write("**Display settings:**")
+            map_options = st.segmented_control(
+                "Map Display Options",
+                options=["Interactive", "Rotate", "Grid", "Header", 
+                            "Radial Profiles", "Polar Profiles", "N-E Labels"],
+                default=["Grid"],
+                selection_mode="multi",
+                key="map_ctrl",
+                on_change=toggle_plot_options,
+                label_visibility='collapsed'
+            )
 
+            # Gruppo 2: Calibrazione (Azioni/Algoritmi)
+            st.write("**Analysis Tools:**")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.toggle("Star Search", key="star_search_ckb", on_change=toggle_star_src)
+            with col_b:
+                st.toggle("Shift Solar Center", key="shiftc_ckb", on_change=toggle_shiftc)
+
+            #with col2:
+            #    # Opzioni di visualizzazione profili e header
+            #    view_options = st.segmented_control(
+            #        "Elementi UI",
+            #        options=["Header", "Radial Profiles", "Polar Profiles"],
+            #        selection_mode="multi",
+            #        key="view_ctrl",
+            #        #on_change=toggle_view_settings
+            #    )
+            #
+            #with col3:
+            #    # Altre label o impostazioni secondarie
+            #    label_options = st.segmented_control(
+            #        "Labels",
+            #        options=["N-E Labels"],
+            #        selection_mode="multi",
+            #        key="label_ctrl",
+            #        on_change=toggle_NE
+            #    )
+                
+            ##st.space(10)
+            #col1, col2, col3 = st.columns([1,1,1])
+            #with col1:
+            #    star_src = st.checkbox('Search stars', key='star_src', on_change=toggle_shiftc)
+            #with col3:
+            #    shift_c = st.toggle('Shift solar center', key='shiftc_ckb', on_change=toggle_shiftc)
+            
             # map container
             map_container = st.container()
 
@@ -174,31 +225,37 @@ def SolarMapViewer():
             flat_data = image_plot[np.isfinite(image_plot)].flatten()
             if flat_data.size == 0:
                 st.info("No valid data")
-                return
+                st.stop()
 
-            p_low, p_high = np.percentile(flat_data, [0.1, 99.9])
-            #flat_data_clip = flat_data[(flat_data >= p_low) & (flat_data <= p_high)]
-            flat_data_clip = flat_data
+            limit_min, limit_max = np.percentile(flat_data, [0.05, 99.95])
+            flat_data_clip = flat_data[(flat_data >= limit_min) & (flat_data <= limit_max)]
 
-            col1, col2, col3 = st.columns([1,7,1])
+            col1, col2, col3 = st.columns([1, 7, 1])
             with col2:
-                fig_hist, ax_hist = plt.subplots(figsize=(6,1))
-                ax_hist.hist(flat_data, bins=256, color='blue', alpha=0.7)
+                fig_hist, ax_hist = plt.subplots(figsize=(6, 1))
+                ax_hist.hist(flat_data_clip, bins=256, color='blue', alpha=0.7, log=True)
                 ax_hist.set_yticks([])
-                ax_hist.set_ylabel("") 
+                ax_hist.set_ylabel("")                     
                 st.pyplot(fig_hist)
 
-            # vmin/max map
-            vmin_default, vmax_default = np.percentile(flat_data_clip, [1,99.9])
-            step = (vmax_default - vmin_default) / 1000 if vmax_default != vmin_default else 1e-8
+            vmin_default, vmax_default = np.percentile(flat_data_clip, [1.0, 99.0])
+            step = (limit_max - limit_min) / 1000 if limit_max != limit_min else 1e-8
             vmin, vmax = st.slider(
                 "Select vmin/vmax",
-                min_value=float(np.nanmin(flat_data_clip)),
-                max_value=float(np.nanmax(flat_data_clip)),
+                min_value=float(limit_min),
+                max_value=float(limit_max),
                 value=(float(vmin_default), float(vmax_default)),
                 step=step,
                 format="%.2e"
             )
+
+            col1, col2, col3 = st.columns([1, 7, 1])
+            with col2:
+                c1, space, c2 = st.columns(3)
+                vmin_manual = c1.number_input("vmin", value=vmin, step=step, format="%.2e")
+                vmax_manual = c2.number_input("vmax", value=vmax, step=step, format="%.2e")   
+            if vmin_manual != vmin or vmax_manual != vmax:
+                vmin, vmax = vmin_manual, vmax_manual
 
             # plot map
             with map_container:
@@ -218,6 +275,8 @@ def SolarMapViewer():
                         plot_rprof(ax_map, map_plot, st.session_state.rad_profiles)
                     if st.session_state.show_pprof:
                         plot_pprof(ax_map, map_plot, st.session_state.pol_profiles)
+                    if st.session_state.stars is not None:
+                        plot_stars(ax_map, st.session_state.stars)
                     cbar = plt.colorbar(im, ax=ax_map, label=f"Intensity [{map_plot.meta.get('bunit', '')}]")
                     st.pyplot(fig_map, width='content')
                 else:
@@ -263,18 +322,55 @@ def SolarMapViewer():
                 if st.button('Reset Image', key='btn_reset_main_image'):
                     st.session_state.original_map = None
                     st.session_state.current_map = None
+                    st.session_state.stars = None
                     st.rerun()
                 
                     
 
     with col_right:
         st.subheader("")
+        st.space('large')
+        st.space('large')
+        
+        if st.session_state.star_search_ckb:
+            st.header('Star Search')
+            with st.form("star_search_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    catalog_display = st.selectbox(
+                        'Star Catalog:', 
+                        options=['Gaia', 'Simbad'],
+                        index=0
+                    )
+                    starcatalog = catalog_display.lower()                
+                with col2:
+                    fmagn = st.number_input('Max Magnitude:', value=8)
+
+                with st.container(horizontal=True):
+                    st.space('stretch')
+                    submitted = st.form_submit_button("Search Stars")
+                    st.space('stretch')
+                    
+                    if submitted:
+                        stars = search_stars(map_plot, catalog_name=starcatalog, fmagn=fmagn)
+                        #plot_stars(ax_map, stars, not_idntf)
+                        st.session_state.stars = stars
+                        st.rerun()
+                        #st.write(f"Stelle con picco identificato: {len(stars)}")
+                        #st.pyplot(fig_map, width='content')
+                        #st.rerun()
+            if st.session_state.stars is not None:
+                if not st.session_state.stars.empty:
+                    st.write(f"Stars found: {len(st.session_state.stars)}")
+                    st.dataframe(st.session_state.stars)
+                else:
+                    st.warning("No stars found with the selected criteria.")
+            st.divider()
+
 
         if st.session_state.show_shiftc:
             sunx, suny = sun_center(map_plot)
-            st.space('large')
-            st.space('large')
-            st.header('Sun center')
+            st.header('Sun Center')
             #with st.container(horizontal=True):
             #    new_sunx = st.number_input('X [px]', value=sunx)
             #    st.space('stretch')
@@ -309,6 +405,8 @@ def SolarMapViewer():
                         #st.session_state.current_map.meta['crpix1'] += x_diff 
                         #st.session_state.current_map.meta['crpix2'] += y_diff 
                         st.rerun()
+            st.divider()
+            
 
 
         if st.session_state.show_header:
@@ -373,6 +471,17 @@ def show_sidebar():
     #    if st.button("Flat Field correction", key="FF_corr"):
     #        st.write('work in progress...')
         
+def update_right_panel_visibility():
+    header_active = "Header" in st.session_state.map_ctrl
+    shift_active = st.session_state.get('show_shiftc', False)
+    star_active = st.session_state.get('star_search_ckb', False)
+    
+    # Risultato finale: basta che uno sia True
+    st.session_state.show_right_panel = any([
+        header_active, 
+        shift_active, 
+        star_active, 
+    ])
 
 def toggle_header():
     show = st.session_state.show_header_ckb
@@ -397,11 +506,26 @@ def toggle_rotate():
 
 def toggle_shiftc():
     st.session_state.show_shiftc = not st.session_state.show_shiftc
-    if not(st.session_state.show_header):
-        st.session_state.show_right_panel = not st.session_state.show_right_panel
+    update_right_panel_visibility()
+
+def toggle_star_src():
+    update_right_panel_visibility()
 
 def toggle_grid():
     st.session_state.show_grid = not st.session_state.show_grid
+
+def toggle_plot_options():
+    selected = st.session_state.map_ctrl
+    
+    st.session_state.intplot = "Interactive" in selected
+    st.session_state.rotate_map = "Rotate" in selected
+    st.session_state.show_grid = "Grid" in selected
+    st.session_state.show_header = "Header" in selected
+    st.session_state.show_rprof = "Radial Profiles" in selected
+    st.session_state.show_pprof = "Polar Profiles" in selected
+    st.session_state.show_ne = "N-E Labels" in selected
+    # per il right panel
+    update_right_panel_visibility()
 
 
 def show_webloader():

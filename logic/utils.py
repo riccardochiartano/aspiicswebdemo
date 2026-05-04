@@ -1,10 +1,12 @@
 import numpy as np
 import sunpy.map
+from sunpy.map import GenericMap
 import matplotlib.pyplot as plt
 from pathlib import Path
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Longitude
 import astropy.units as u
 from astropy.io import fits
+from astropy.wcs.utils import skycoord_to_pixel
 import streamlit as st
 from io import BytesIO
 from scipy import interpolate
@@ -19,11 +21,42 @@ import requests
 import time
 from bs4 import BeautifulSoup
 from datetime import datetime
+from photutils import centroids
+from photutils.detection import find_peaks
+from astropy.stats import sigma_clipped_stats
+from astroquery.gaia import Gaia
+from astroquery.simbad import Simbad
+
 
 from logic.plot import plot_hist_AoLP, plot_local_RF_AoLP
 
+
 base_dir = Path(__file__).resolve().parent.parent
 
+#@st.cache_resource
+#def read_map(filepath=None, data=None, header=None):
+#    if filepath is not None:
+#        try:
+#            with fits.open(filepath) as hdul:
+#                hdul.verify('fix')
+#                data = hdul[0].data if hdul[0].data is not None else hdul[1].data
+#                header = hdul[0].header if hdul[0].data is not None else hdul[1].header
+#                header = dict(header)
+#        except Exception as e:
+#            raise ValueError(f"Error loading file {filepath}: {e}")
+#
+#    if data is not None and header is not None:
+#        filename = str(header.get('FILENAME', '')).upper()
+#        
+#        if 'metis' in filename:
+#            return METISMap(data, header)
+#        else:
+#            try:
+#                return sunpy.map.Map(data, header)
+#            except:
+#                return GenericMap(data, header)
+#            
+#    raise ValueError("Need a 'filepath' or 'data'+'header'.")    
 
 def sun_center (solar_map):
     sun_center = SkyCoord(0*u.arcsec, 0*u.arcsec, frame=solar_map.coordinate_frame)
@@ -609,3 +642,296 @@ def fcorona_removed_map(smap, model='standard'):
     smap_removed = sunpy.map.Map(smap_removed.data, headerM)
 
     return smap_removed
+
+def search_stars(smap, catalog_name='gaia', fmagn='8'):
+    image_data = smap.data
+    header = smap.meta
+    wcs = smap.wcs
+    filename = header.get('filename', 'no_fname')
+    
+    # 2. Selezione e filtraggio Catalogo
+    is_uv = 'uv' in filename.lower()
+    channel = 'uv' if is_uv else 'vl'
+    mag_col = 'Umag' if is_uv else 'Vmag'
+    catalog_name = 'simbad' if is_uv else catalog_name
+    mag_limit = fmagn
+
+    if True:
+        catalog_stars = catalog_query(smap, mag_limit, catalog=catalog_name, is_uv=is_uv)
+    else:
+        cat = pd.read_csv('simbad_vmag7.csv')
+        # Filtraggio dinamico magnitudine
+        cat = cat[cat[mag_col] < mag_limit].copy()
+        cat = cat[~np.isnan(cat[mag_col])].copy()
+        catalog_stars = cat.copy()
+
+    # NO CORREZIONE ABERRAZIONE
+    #print(catalog_stars[:10])
+    #sys.exit()
+
+    coords_stars = SkyCoord(
+        ra=catalog_stars['ra'].values * u.deg, 
+        dec=catalog_stars['dec'].values * u.deg, 
+        distance=1e6 * u.pc,
+        frame='icrs'
+    )
+    
+    x, y = skycoord_to_pixel(coords_stars, wcs)
+    catalog_stars['xsensor'] = x
+    catalog_stars['ysensor'] = y
+
+    cx = smap.meta.get('CRPIX1', smap.meta['naxis1'] / 2)
+    cy = smap.meta.get('CRPIX2', smap.meta['naxis2'] / 2)
+    catalog_stars['r_dist'] = np.sqrt((catalog_stars.xsensor - cx)**2 + 
+                                    (catalog_stars.ysensor - cy)**2)
+    FOV_min = smap.meta['naxis2']/5        # soluz temporanea
+
+    # Filtro combinato: dentro i bordi del sensore E fuori dall'occultatore
+    catalog_stars = catalog_stars[
+        (catalog_stars.xsensor > 0) & (catalog_stars.xsensor < wcs.pixel_shape[0]) &
+        (catalog_stars.ysensor > 0) & (catalog_stars.ysensor < wcs.pixel_shape[1]) &
+        (catalog_stars.r_dist > FOV_min) 
+    ].copy()
+
+    st.write(f"Stelle nel sensore: {len(catalog_stars)}")
+    #print(catalog_stars)
+    if len(catalog_stars) > 30:
+        st.warning("Troppe stelle nel sensore, errore??")
+        return
+    
+    return catalog_stars
+    # 5. Ricerca Picchi nell'immagine
+    #if not catalog_stars.empty:
+    #    catalog_stars = find_nearby_stars(image_data, catalog_stars, size=13)
+    #    # Rimuoviamo quelle senza un picco identificato
+    #    not_identified = catalog_stars[catalog_stars['peak_value'].isna()]
+    #    catalog_stars = catalog_stars.dropna(subset=['peak_value'])
+    #    st.write(f"Stelle con picco identificato: {len(catalog_stars)}")
+    #else:
+    #    st.warning("Nessuna stella identificata con successo.")
+    #
+    #return catalog_stars, not_identified
+
+    # 6. Salvataggio Risultati
+    #if args.save and not catalog_stars.empty:
+    #    catalog_stars['source_file'] = file_path.name
+    #    # Rimuoviamo eventuali colonne 'cutout' (oggetti complessi) prima di salvare in CSV
+    #    df_to_save = catalog_stars.drop(columns=['cutout'], errors='ignore')
+    #    df_to_save.to_csv(args.output, index=False)
+    #    print(f"Risultati salvati in: {args.output}")
+
+    # 7. Plotting
+    #if args.plot:
+    #    # A. Plot Generale del Campo
+    #    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={'projection': wcs})
+    #    smap.plot(axes=ax)
+    #    
+    #    # Plot stelle IDENTIFICATE (Cerchio + Croce sul picco)
+    #    if not catalog_stars.empty:
+    #        # Plot stelle NON identificate (Cerchi tratteggiati)
+    #        if not not_identified.empty:
+    #            ax.scatter(not_identified.xsensor, not_identified.ysensor,
+    #                    s=100, edgecolors='orange', facecolors='none', 
+    #                    linestyle='--', alpha=0.7, label='Teoriche (non trovate)')
+    #        ax.scatter(catalog_stars.xsensor, catalog_stars.ysensor,
+    #                s=150, edgecolors='cyan', facecolors='none', 
+    #                linewidths=1.5, label='Teoriche (identificate)')
+    #        #ax.scatter(catalog_stars.xsensor, catalog_stars.ysensor, 
+    #        #        marker='x', s=60, color='cyan', label='Picco Identificato')
+    #        #ax.scatter(catalog_stars.x_centroid, catalog_stars.y_centroid, 
+    #        #        marker='x', s=60, color='red', label='Centroide Identificato')
+    #
+    #    ax.legend(loc='upper right', frameon=True)
+    #    ax.set_title(f"Star Tracking - {file_path.name}")
+    #    #plt.show()
+    #
+    #    # B. Plot dei Cutouts (Solo per le identificate)
+    #    if not catalog_stars.empty:
+    #        print("Generazione dei ritagli per le stelle identificate...")
+    #        for i, row in catalog_stars.iterrows():
+    #            cutout = image_cutout(image_data, row['x_peak'], row['y_peak'], size=13)
+    #            
+    #            if cutout is not None:
+    #                plt.figure(figsize=(3, 3))
+    #                plt.imshow(cutout, origin='lower', cmap=smap.cmap)
+    #                
+    #                mag_val = row.get(mag_col, np.nan)
+    #                plt.title(f"{row.get('main_id', 'N/A')}\n"
+    #                        f"{mag_col}: {mag_val:.2f} | Peak: {row['peak_value']:.2e}", 
+    #                        fontsize=9)
+    #                plt.colorbar(fraction=0.046, pad=0.04)
+    #                #plt.show()
+    #        if args.plotall:
+    #            for i, row in not_identified.iterrows():
+    #                cutout = image_cutout(image_data, row['xsensor'], row['ysensor'], size=13)
+    #                
+    #                if cutout is not None:
+    #                    plt.figure(figsize=(3, 3))
+    #                    plt.imshow(cutout, origin='lower', cmap=smap.cmap)
+    #                    
+    #                    mag_val = row.get(mag_col, np.nan)
+    #                    plt.title(f"NON IDENTIFICATA\n"
+    #                            f"{row.get('main_id', 'N/A')}\n"
+    #                            f"{mag_col}: {mag_val:.2f} | Peak: {row['peak_value']:.2e}", 
+    #                            fontsize=9)
+    #                    plt.colorbar(fraction=0.046, pad=0.04)
+    #                    #plt.show()
+
+def catalog_query(s_map, mag_limit=8, catalog='gaia', is_uv=False):
+    sun_to_hrcs = s_map.observer_coordinate.transform_to('hcrs')
+    center_ra = Longitude(sun_to_hrcs.ra + 180*u.deg)
+    center_dec = -sun_to_hrcs.dec
+    center_coord = SkyCoord(ra=center_ra, dec=center_dec, frame='icrs')
+    
+    width = (s_map.meta['naxis1'] * abs(s_map.meta['cdelt1']) * u.arcsec).to(u.deg)
+    radius = width * 1.2 / 2  # 20% di margine
+    
+    if catalog == 'gaia':
+        # Query a Gaia DR3 (molto veloce e preciso)
+        # Gmag è circa la magnitudine visibile
+        job = Gaia.launch_job(f"SELECT ra, dec, pmra, pmdec, parallax, phot_g_mean_mag as Vmag, ref_epoch, source_id "
+                            f"FROM gaiadr3.gaia_source "
+                            f"WHERE CONTAINS(POINT('ICRS', ra, dec), "
+                            f"CIRCLE('ICRS', {center_coord.ra.deg}, {center_coord.dec.deg}, {radius.value}))=1 "
+                            f"AND phot_g_mean_mag < {mag_limit}")
+        table = job.get_results()
+        df = table.to_pandas()
+        df['main_id'] = "Gaia_" + df['source_id'].astype(str)
+    else:
+        custom_simbad = Simbad()
+        custom_simbad.add_votable_fields('V', 'U', 'pmra', 'pmdec', 'parallax')
+        
+        table = custom_simbad.query_region(center_coord, radius=radius)
+        
+        if table is not None:
+            # 1. Rinominazione Colonne
+            if 'V' in table.colnames: table.rename_column('V', 'Vmag')
+            elif 'FLUX_V' in table.colnames: table.rename_column('FLUX_V', 'Vmag')
+                
+            if 'U' in table.colnames: table.rename_column('U', 'Umag')
+            elif 'FLUX_U' in table.colnames: table.rename_column('FLUX_U', 'Umag')
+            
+            # 2. Conversione in Pandas per un filtraggio più agile
+            df = table.to_pandas()
+            
+            # 3. Taglio sulla Magnitudine (Filtro dinamico)
+            # Se siamo in UV usiamo Umag, altrimenti Vmag
+            current_mag_col = 'Umag' if is_uv else 'Vmag'
+            
+            if current_mag_col in df.columns:
+                # Rimuoviamo i NaN e applichiamo il limite
+                initial_count = len(df)
+                df = df[df[current_mag_col].notna()].copy()
+                df = df[df[current_mag_col] < mag_limit].copy()
+                print(f"Simbad: filtrate {len(df)} stelle (da {initial_count}) con {current_mag_col} < {mag_limit}")
+            
+            # 4. Standardizzazione nomi coordinate e epoca
+            if 'RA' in df.columns: df.rename(columns={'RA': 'ra'}, inplace=True)
+            if 'DEC' in df.columns: df.rename(columns={'DEC': 'dec'}, inplace=True)
+            df['ref_epoch'] = 2000.0
+                    
+    return df
+
+def image_cutout(image_data, x, y, size):
+    """
+    Returns a cutout at pixel x, y of size x size pixels
+
+    Parameters
+    ----------
+    image_data : ndarray
+        array with the image.
+    x, y : float
+        center of the cutout.
+    size : int
+        size of the cutout.
+
+    Returns
+    -------
+    ndarray
+        cutout of the image.
+
+    """
+    if np.isnan(x) | np.isnan(y):
+        return None
+
+    x, y = int(x), int(y)
+    xmax, ymax = image_data.shape
+    x0 = x-size if x-size > 0 else 0
+    y0 = y-size if y-size > 0 else 0
+    x1 = x+size+1 if x+size+1 < xmax else xmax
+    y1 = y+size+1 if y+size+1 < ymax else ymax
+
+    return image_data[y0:y1,x0:x1]
+
+def find_nearby_stars(image_data, stars, size=10, 
+                      centroid_func=centroids.centroid_2dg):
+    '''
+    Finds stars in an image nearby a set of location in pixels, 
+    using a centroiding function if provided 
+    (eg. the ones in photutils.centroids)
+
+    Parameters
+    ----------
+    image_data : array
+    stars : DataFrame
+        coordinates of potential stars.
+    size : int, optional
+        size of the box where to look for stars. The default is 10.
+    centroid_func : function, optional
+        centroid function to use. The default is centroids.centroid_2dg.
+
+    Returns
+    -------
+    stars : Astropy Table
+        table with columns 'x_peak', 'y_peak', 'peak_value', 'x_centroid', 
+        'y_centroid'. 'peak_value' includes the floor (median of the image)
+
+    '''
+  
+    new_cols = ['x_peak', 'y_peak', 'peak_value', 'peak_floor', 'x_centroid', 'y_centroid']
+    
+    # add new columns to the df
+    stars = stars.reindex(columns=stars.columns.tolist() + new_cols)
+    
+    g_size = size
+    for row in stars.itertuples():
+        # get a cutout of the probable star
+        idx = row.Index
+        x, y = row.xsensor, row.ysensor
+        sub = image_cutout(image_data, x, y, size)
+        if sub is not None:
+          
+            # mask 0 pixels because they don't contain data
+            mask = sub == 0
+            mean, median, std = sigma_clipped_stats(sub[~mask], sigma=3.0)
+            
+            # hack to fix issue in photutils 1.3.0
+            if centroid_func is centroids.centroid_2dg:
+                def centroid_func(data, mask):
+                    return centroids.centroid_2dg(data, mask=mask)
+            
+            f = find_peaks(sub-median, 
+                           threshold=3*std, 
+                           box_size=size*2+1, 
+                           npeaks=1,
+                           mask=mask,
+                           centroid_func=centroid_func)
+            if f:
+                # translate to global sensor coordinates
+                stars.at[idx, 'x_peak'] = f['x_peak'] + int(x) - size 
+                stars.at[idx, 'y_peak'] = f['y_peak'] + int(y) - size
+                
+                # add back floor to the peak and save it
+                stars.at[idx,'peak_value'] = f['peak_value'] + median
+                stars.at[idx, 'peak_floor'] = median
+                
+                # centroids outside of the sub are clearly a bad fit
+                if (f['x_centroid'] > 0) & (f['x_centroid'] < size*2) & \
+                   (f['y_centroid'] > 0) & (f['y_centroid'] < size*2):
+
+                    stars.at[idx, 'x_centroid'] = \
+                        f['x_centroid'] + int(x) - size 
+                    stars.at[idx, 'y_centroid'] = \
+                        f['y_centroid'] + int(y) - size 
+        
+    return stars
