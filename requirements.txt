@@ -16,3 +16,5 @@ watroo==0.0.4
 opencv-python-headless
 cmcrameri
 photutils
+astroquery
+
