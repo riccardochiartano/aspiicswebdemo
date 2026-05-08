@@ -344,7 +344,7 @@ def SolarMapViewer():
                     )
                     starcatalog = catalog_display.lower()                
                 with col2:
-                    fmagn = st.number_input('Max Magnitude:', value=8)
+                    fmagn = st.number_input('Max Magnitude:', value=8.0)
 
                 with st.container(horizontal=True):
                     st.space('stretch')
