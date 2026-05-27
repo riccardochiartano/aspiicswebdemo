@@ -574,7 +574,7 @@ def show_webloader():
         with col2:
             flt_pb = st.checkbox('Polarisation brightness', key=f'pb_{tabname}')
             flt_he = st.checkbox('He I D3 line', key=f'p1_{tabname}')    
-        #with col3:
+        with col3:
             flt_pa = st.checkbox('Polarisation angle', key=f'he_{tabname}')    
         #    flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
 
