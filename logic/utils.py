@@ -425,7 +425,8 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
     # add order
     order = "order=DATE-OBS.desc.nullslast"
     # add the fixed filter
-    version = "version=eq.v2"
+    #version = "version=eq.v2"
+    version = "version=eq.v03"
 
     # add variable filter options
     filters = 'or('
