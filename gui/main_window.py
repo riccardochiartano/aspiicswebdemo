@@ -570,12 +570,12 @@ def show_webloader():
             st.write('Type')
         with col1:
             flt_bt = st.checkbox('Total brightness', key=f'bt_{tabname}')    
-        #    flt_p2 = st.checkbox('Polarizer 0°', key=f'p2_{tabname}')    
+            flt_gr = st.checkbox('Green line', key=f'p2_{tabname}')    
         with col2:
-            flt_pb = st.checkbox('Polarized brightness', key=f'pb_{tabname}')
-        #    flt_p1 = st.checkbox('Polarizer 60°', key=f'p1_{tabname}')    
+            flt_pb = st.checkbox('Polarisation brightness', key=f'pb_{tabname}')
+            flt_he = st.checkbox('He I D3 line', key=f'p1_{tabname}')    
         #with col3:
-        #    flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
+            flt_pa = st.checkbox('Polarisation angle', key=f'he_{tabname}')    
         #    flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
 
         #checkboxes = {
@@ -583,8 +583,11 @@ def show_webloader():
         #    "pb": flt_pb,
         #}
         checkboxes = {
-            "Wide": flt_bt,
-            "0": flt_pb,
+            "Total": flt_bt,
+            "Polarisation brightness": flt_pb,
+            "Polarisation angle": flt_pa,
+            "Green": flt_gr,
+            "He": flt_bt,
         }
 
     flt_list = [key for key, checked in checkboxes.items() if checked]

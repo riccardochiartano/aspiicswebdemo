@@ -425,14 +425,19 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
     # add order
     order = "order=DATE-OBS.desc.nullslast"
     # add the fixed filter
-    #version = "version=eq.v2"
     version = "version=eq.v03"
 
     # add variable filter options
-    filters = 'or('
-    for filter in filter_list:
-        filters += f'FILTER.like.{filter}*,'
-    filters = filters[:-1] + ')'
+    if level == 'L3':
+        filters = 'or('
+        for filter in filter_list:
+            filters += f'PROD_ID.like.{filter}*,'
+        filters = filters[:-1] + ')'
+    else:
+        filters = 'or('
+        for filter in filter_list:
+            filters += f'FILTER.like.{filter}*,'
+        filters = filters[:-1] + ')'
 
     start_dt = start_dt.isoformat()
     end_dt = end_dt.isoformat()
