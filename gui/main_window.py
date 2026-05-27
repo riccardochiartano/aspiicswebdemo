@@ -587,7 +587,7 @@ def show_webloader():
             "Polarisation brightness": flt_pb,
             "Polarisation angle": flt_pa,
             "Green": flt_gr,
-            "He": flt_bt,
+            "He": flt_he,
         }
 
     flt_list = [key for key, checked in checkboxes.items() if checked]
