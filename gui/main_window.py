@@ -532,7 +532,7 @@ def show_webloader():
     st.subheader('Upload from web')
     st.write('')
     
-    level = st.radio("Level", ["L1", "L2", "L3"], horizontal=True, key=f'level_{tabname}')
+    level = st.radio("Level", ["L1", "L2", "L3"], horizontal=True, key=f'level_{tabname}', index=2)
 
     if level != 'L3':
         col, col1, col2, col3 = st.columns([1,1,1,1])
