@@ -664,7 +664,10 @@ def show_webloader():
         baseDataURL = "https://p3sc.oma.be/datarepfiles"
         parts = upl_filename.split('_')
         fileLevel = parts[2].upper()
-        file_version = 'v2'
+        if 'v03' in upl_filename:
+            file_version = 'v03'
+        else:
+            file_version = 'v2'
         file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{upl_filename}"
         st.write(f'Link: {file_url}')
         upl_map = sunpy.map.Map(file_url)
