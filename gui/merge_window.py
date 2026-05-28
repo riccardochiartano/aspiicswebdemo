@@ -274,7 +274,7 @@ def do_merge_rob(unit='MSB', rotate=True, removef=False):
             
             try:
                 flt = parts[1]
-                cyc_id = parts[3][:8]
+                cyc_id = parts[4][:8]
                 
                 group_key = (flt, cyc_id)
                 groups[group_key].append(path)
