@@ -20,7 +20,6 @@ from logic.plot import plot_map
 
 base_dir = Path(__file__).resolve().parent.parent
 
-
 def e_density_window():
     col_left, col_main, col_right = st.columns([1, 3, 1])
     
@@ -29,48 +28,64 @@ def e_density_window():
 
         pb_file = st.file_uploader("Upload pB map:", type=["fits", "fts"])
 
-        if st.button('Calculate Electron Density map'):
+        if pb_file:
+            pb_map = file_to_smap(pb_file)
+            
+            with st.container(border=True): 
+                st.markdown("**Inversion Parameters**")
+                col_r1, col_r2, col_ang = st.columns(3)
+                with col_r1:
+                    r_in = st.number_input("R in", min_value=1.0, max_value=10.0, value=1.1, step=0.1)
+                with col_r2:
+                    r_out = st.number_input("R out", min_value=1.0, max_value=10.0, value=3.0, step=0.1)
+                with col_ang:
+                    ang_step = st.number_input("Angular Step (°)", min_value=0.1, max_value=60.0, value=1.0, step=0.5)
 
-            if pb_file:                
-                pb_map = file_to_smap(pb_file)
-                #pb_map = pb_map * 2.082e+20
-    
-                ne_map = ne_calc(pb_map)
-                
-                st.pyplot(plot_map(ne_map))
-                download_map_btn(ne_map)
-            else:
-                st.error('Load maps first.')
+            if st.button('Calculate Electron Density map', type='primary'):
+                if r_in >= r_out:
+                    st.error("Error: 'R in' must be less than 'R out'.")
+                else:
+                    ne_map = ne_calc(pb_map, r_in=r_in, r_out=r_out, ampl=ang_step)
+                    
+                    st.success("Calculation completed!")
+                    st.pyplot(plot_map(ne_map))
+                    download_map_btn(ne_map)
+        else:
+            st.info('Please upload a pB FITS file to start.')
 
 
-def ne_calc(pb_map):
+def ne_calc(pb_map, r_in=1.1, r_out=3.0, ampl=1.0):
     r, angles_grid, rsun_arcsec = precompute_geometry(pb_map)
-    ampl = 1
-    n_angles = int((360)/ampl)
-    ne_profiles = []
+    
+    n_angles = int(360 / ampl)
     angles = np.linspace(0, 2*np.pi, n_angles, endpoint=False)
-    r_in, r_out = 1.1, 3.0
-    for angle in angles:
+    ne_profiles = []
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i, angle in enumerate(angles):
+        status_text.text(f"Fitting angle {i+1}/{n_angles} ({np.degrees(angle):.1f}°)")
+        progress_bar.progress((i + 1) / n_angles)
+        
         rad_prof, radii, rad_error = radial_profile_fast(
             pb_map, r, angles_grid, rsun_arcsec,
             angle, start_rsun=r_in, end_rsun=r_out, ampl=np.deg2rad(ampl)
         )
 
         params, _, _ = fit_pb_profile(radii, rad_prof, rad_error)
-        
         ne_prof = calc_ne_profile(params, radii)
-
         ne_profiles.append(ne_prof)
     
+    # Rimuove i widget di progresso al termine del ciclo
+    progress_bar.empty()
+    status_text.empty()
+    
     ne_profiles = np.array(ne_profiles)
-
     ne_image = radial_profiles_to_map(pb_map, ne_profiles, angles, radii)
-    
     ne_header = make_ne_header(pb_map.meta) 
-    
     ne_map = sunpy.map.Map(ne_image, ne_header)
 
-    #st.write(profiles[:3], angles[:3])
     return ne_map
 
 def fit_pb_profile(solar_radii, pb_intensity, sigma_pb):
