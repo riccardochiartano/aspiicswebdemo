@@ -27,44 +27,82 @@ def continuum_sub_window():
     with col_main:
         st.subheader("Continuum subtraction (FeXIV/HeI)")
 
-        spectrum = st.radio("Spectrum:",
-                ["Allen", "AM0", "Koutchmy"],
-                horizontal=True  
+        spectrum = "AM0"
+
+        with st.form("continuum_subtraction_form"):
+
+            rate_option = st.radio(
+                "Rate:",
+                options=["1.0856 (ROB)", "1.0579 (OATo)", "Other"],
+                horizontal=True,
             )
 
-        filter_file = st.file_uploader("Upload FeXIV or HeI map:", type=["fits", "fts"])
-        WBF_file = st.file_uploader("Upload WBF map:", type=["fits", "fts"])
+            custom_rate = st.number_input(
+                "Other:",
+                value=1.0,
+                step=0.01,
+                format="%.4f",
+                #disabled=(rate_option != "Other:"),
+            )
 
-        if st.button('plot FeXIV/HeI no continuum'):
+            st.markdown("---")
 
-            interp_spectrum = load_spectrum(spectrum)
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                filter_file = st.file_uploader(
+                    "Upload FeXIV or HeI map:", type=["fits", "fts"]
+                )
+            with col2:
+                WBF_file = st.file_uploader("Upload WBF map:", type=["fits", "fts"])
+
+
+            # Il pulsante di invio del Form
+            submitted = st.form_submit_button("Plot FeXIV/HeI no continuum")
+
+        # Logica eseguita SOLO dopo la pressione di submitted
+        if submitted:
             if filter_file and WBF_file:
-                if '_fe_' in filter_file.name and '_wb_' in WBF_file.name:
-                    rate = filters_rate(interp_spectrum, type='FeXIV')
-                elif '_he_' in filter_file.name and '_wb_' in WBF_file.name:
-                    rate = filters_rate(interp_spectrum, type='HeI')
+                # Check del nome dei file
+                is_fe = "_fe_" in filter_file.name
+                is_he = "_he_" in filter_file.name
+                is_wb = "_wb_" in WBF_file.name
+
+                if (is_fe or is_he) and is_wb:
+
+                    if rate_option == "Other":
+                        rate = custom_rate
+                    else:
+                        if rate_option == '1.0856 (ROB)':
+                            rate = 1.085552973 
+                        elif rate_option == '1.0579 (OATo)':
+                            rate = 1.057916932
+
+                    st.info(f"Rate: **{rate:.6f}**")
+
+                    filter_map = file_to_smap(filter_file)
+                    WBF_map = file_to_smap(WBF_file)
+
+                    # filter_map = filter_map / filter_map.meta['exptime']
+                    # WBF_map = WBF_map / WBF_map.meta['exptime']
+
+                    filter_map = no_neg(filter_map)
+                    WBF_map = no_neg(WBF_map)
+
+                    FeXIV_sub_image = (filter_map.data * rate) - WBF_map.data
+                    FeXIV_sub_image *= float(filter_map.meta['A_PHOT']) / float(filter_map.meta['CONV_PHO'])
+                    FeXIV_sub_map = sunpy.map.Map(FeXIV_sub_image, filter_map.meta)
+
+                    FeXIV_sub_map = change_header(FeXIV_sub_map)
+
+                    st.pyplot(plot_map(FeXIV_sub_map))
+                    download_map_btn(FeXIV_sub_map)
+
                 else:
-                    st.error('FeXIV/HeI file must contain "fe"/"he" and WBF file must contain "wb".')
-                
-                filter_map = file_to_smap(filter_file)
-                WBF_map = file_to_smap(WBF_file)
-
-                #filter_map = filter_map / filter_map.meta['exptime']
-                #WBF_map = WBF_map / WBF_map.meta['exptime']
-                
-                filter_map = no_neg(filter_map)
-                WBF_map = no_neg(WBF_map) 
-
-                FeXIV_sub_image = filter_map.data - WBF_map.data #* rate
-                FeXIV_sub_map = sunpy.map.Map(FeXIV_sub_image, filter_map.meta)
-                
-                FeXIV_sub_map = change_header(FeXIV_sub_map)
-
-                st.pyplot(plot_map(FeXIV_sub_map))
-                download_map_btn(FeXIV_sub_map)
+                    st.error(
+                        'FeXIV/HeI file must contain "fe"/"he" and WBF file must contain "wb".'
+                    )
             else:
-                st.error('Load maps first.')
-
+                st.error("Load maps first.")
 
 def integrate_spectrum(interp_func, type, n_points=200):
     if type == 'WBF':
@@ -106,7 +144,7 @@ def change_header(map):
     parts[2] = 'l3'
     filename_new = '_'.join(parts)
     map.meta['filename'] = filename_new
-    map.meta['bunit'] = 'MSB'
+    map.meta['bunit'] = 'photon/s/cm^2/sr'
     return map
 
 def load_spectrum(spectrum):
