@@ -9,6 +9,7 @@ from gui.e_density_window import e_density_window
 from gui.calib_window import calib_window
 from gui.movie_window import movie_window
 from gui.comparison_window import comparison_window
+from gui.fcorona_window import fcorona_window
 
 st.set_page_config(
     page_title="ASPIICS Web",
@@ -34,7 +35,7 @@ def main():
     # sidebar
     #show_sidebar()
 
-    tab_main, tab_calib, tab_merge, tab_demod, tab_edens, tab_subc, tab_movies, tab_comparison = st.tabs([
+    tab_main, tab_calib, tab_merge, tab_demod, tab_edens, tab_subc, tab_movies, tab_comparison, tab_fcorona = st.tabs([
         "Main",
         #"Plot profile",
         "Calibration",
@@ -43,7 +44,8 @@ def main():
         "Electron Density",
         "Continuum Subtraction",
         "Movies",
-        "Comparison"
+        "Comparison",
+        "F-Corona"
         #"Deviation from RF"
     ])
 
@@ -78,6 +80,9 @@ def main():
 
     with tab_comparison:
         comparison_window()
+
+    with tab_fcorona:
+        fcorona_window()
     
     #with tab9:
     #    deviation_window()

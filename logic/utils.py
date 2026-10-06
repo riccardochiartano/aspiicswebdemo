@@ -495,7 +495,7 @@ def aspiics_files_api(filter_list, level, orbit_id, cycle_id, start_dt, end_dt, 
     #st.write(fileURLList)
     return fileURLList
 
-def header_from_sunpymap(meta):
+def header_from_sunpymap_old(meta):
     header_dict = {}
 
     for k, v in meta.items():
@@ -505,6 +505,31 @@ def header_from_sunpymap(meta):
         except Exception:
             pass 
     header = fits.Header(header_dict)
+    return header
+
+### new keeping history and comments ###
+def header_from_sunpymap(meta):
+    header = fits.Header()
+    
+    for k, v in meta.items():
+        k_lower = k.lower()
+        
+        if k_lower in ("history", "comment"):
+            lines = v if isinstance(v, (list, tuple)) else str(v).split("\n")
+            for line in lines:
+                if str(line).strip():
+                    if k_lower == "history":
+                        header.add_history(str(line))
+                    else:
+                        header.add_comment(str(line))
+            continue
+
+        try:
+            fits.Card(k, v)
+            header[k] = v
+        except Exception:
+            pass
+        
     return header
 
 def update_meta_rotangle(solar_map, rot_angle):
@@ -634,8 +659,10 @@ def fcorona_removed_map(smap, model='standard'):
     smap_removed, _ = remove_fcorona(smap, model=model)
     headerM = header_from_sunpymap(smap.meta)
 
-    headerM.set("HISTORY", "F-Corona removed using model"+model+" ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))")
-    headerM.set("HISTORY", "old filename: " + headerM["FILENAME"])
+    #headerM.set("HISTORY", "F-Corona removed using model"+model+" ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))")
+    #headerM.set("HISTORY", "old filename: " + headerM["FILENAME"])
+    headerM["HISTORY"] = "F-Corona removed using model " + model + " ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))"
+    headerM["HISTORY"] = "old filename: " + headerM["FILENAME"]
 
     newname=headerM['filename'].split('.')[0]+'.fits'
     if "l2" in newname:
@@ -648,6 +675,77 @@ def fcorona_removed_map(smap, model='standard'):
     smap_removed = sunpy.map.Map(smap_removed.data, headerM)
 
     return smap_removed
+
+def add_fcorona(smap, model='standard'):
+    """
+    Riaggiungie il modello di F-corona da una SunPy Map L3.
+    
+    Parameters
+    ----------
+    smap  : sunpy.map.GenericMap
+    model : 'standard' (Koutchmy 2000) o 'Allen' (Allen 1977)
+    
+    Returns
+    -------
+    smap_fullcorona : SunPy Map con F-corona aggiunta
+    smap_fcorona : SunPy Map della F-corona aggiunta
+    """
+    
+    data = smap.data
+    header = smap.meta
+
+    pixscale = header['CDELT1']
+    CRPIX1   = header['CRPIX1']
+    CRPIX2   = header['CRPIX2']
+    #CRPIX1   = header['X_IO']-1.0  # !!!! to put back !!!! header['CRPIX1']-1.0            # these are center of the Sun in the image, re-centered during l3_merge
+    #CRPIX2   = header['Y_IO']-1.0  # header['CRPIX2']-1.0
+    RSUN_ARC = header['RSUN_ARC'] 
+
+    ny, nx = data.shape
+    #xx = np.outer(np.ones(ny),  np.arange(nx) - (CRPIX1 - 1)) * pixscale / RSUN_ARC
+    #yy = np.outer(np.arange(ny) - (CRPIX2 - 1), np.ones(nx)) * pixscale / RSUN_ARC
+    xx = np.outer(np.ones(2048),np.linspace(0,2047,num=2048)-CRPIX1) * pixscale / RSUN_ARC
+    yy = np.outer(np.linspace(0,2047,num=2048)-CRPIX2,np.ones(2048)) * pixscale / RSUN_ARC
+    
+    #Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model='simple_sh')  ### --- Sergei's data were created with Allen model ### ,verbose=True --- with plots
+    Fcor, Fcor_msg, Fcor_kind = f_corona(xx,yy,model=model)    ### --- Koutchmy et al 2002  ### ,verbose=True --- with plots
+    new_data=data+Fcor
+
+    smap_kcorona = sunpy.map.Map(new_data, smap.meta)
+    smap_fcorona = sunpy.map.Map(Fcor, smap.meta)
+
+    return smap_kcorona, smap_fcorona
+
+def fcorona_added_map(smap, model='standard'):
+    """
+    Riaggiunge il modello di F-corona da una Map L3 ASPIICS in WBF o Total Brightness.
+    
+    Parameters
+    ----------
+    smap  : sunpy.map.GenericMap, L3 ASPIICS
+    model : 'standard' (Koutchmy 2000) o 'Allen' (Allen 1977)
+    
+    Returns
+    -------
+    smap_fullcorona : SunPy Map con F-corona aggiunta
+    """
+
+    smap_added, _ = add_fcorona(smap, model=model)
+    headerM = header_from_sunpymap(smap.meta)
+
+    headerM["HISTORY"] = "F-Corona added using model " + model + " ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))"
+    headerM["HISTORY"] = "old filename: " + headerM["FILENAME"]
+
+    newname=headerM['filename'].split('.')[0]+'.fits'
+    if "bt" in newname:
+        newname=newname.replace("bt","wb")
+    headerM.set('FILENAME', newname)
+    st.write(newname)
+
+    smap_added = sunpy.map.Map(smap_added.data, headerM)
+
+    return smap_added
+
 
 def search_stars(smap, catalog_name='gaia', fmagn='8'):
     image_data = smap.data
