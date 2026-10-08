@@ -663,6 +663,8 @@ def fcorona_removed_map(smap, model='standard'):
     #headerM.set("HISTORY", "old filename: " + headerM["FILENAME"])
     headerM["HISTORY"] = "F-Corona removed using model " + model + " ('standard' (Koutchmy 2000) o 'Allen' (Allen 1977))"
     headerM["HISTORY"] = "old filename: " + headerM["FILENAME"]
+    headerM.set('LEVEL','L3','data processing level')
+    headerM.set('CREATOR',"ASPIICS_WEB fcoronaremove", "FITS creation software")
 
     newname=headerM['filename'].split('.')[0]+'.fits'
     if "l2" in newname:

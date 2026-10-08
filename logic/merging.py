@@ -395,13 +395,13 @@ def merge_rob(
     Im_out = Im_out.astype(np.float32)
 
     headerM = headerRef.copy()
-    headerM.set('LEVEL','L3','data processing level')
+    headerM.set('LEVEL','L2_merged','data processing level')
     headerM.set('PROD_ID','Merged',after='LEVEL')
     headerM.set('DATAMIN', DATAMIN, "minimum valid physical value")
     headerM.set('DATAMAX', DATAMAX, "maximum valid physical value")
     headerM.set('DATAMEAN', DATAMEAN, "average pixel value across the image")
     headerM.set('DATAMEDN', DATAMEDN, "median pixel value across the image")
-    headerM.set('CREATOR',"Sergei's l3_merge", "FITS creation software")
+    headerM.set('CREATOR',"ASPIICS_WEB merge", "FITS creation software")
 
     #header1.set('CRPIX1',1024.5,'[pix] (1..2048) The image has been ...')
     #header1.set('CRPIX2',1024.5,'[pix]   re-centered')
@@ -427,7 +427,8 @@ def merge_rob(
     hdu=fits.PrimaryHDU(Im_out,header=headerM)
     #newname=os.path.splitext(os.path.basename(file10))[0]+'.merged.fits'
     newname=os.path.splitext(headerM['FILENAME'])[0]+'.merged.fits'
-    newname=newname.replace("l2","l3")
+    #newname=newname.replace("l2","l3")
+    
     #file2write = './output/'+os.path.splitext(os.path.basename(file1))[0]+'.merged.fits'
     #file2write = os.path.join(outputdir,newname)
     #if os.path.isfile(file2write):
