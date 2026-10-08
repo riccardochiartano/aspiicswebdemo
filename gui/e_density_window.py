@@ -89,12 +89,30 @@ def ne_calc(pb_map, r_in=1.1, r_out=3.0, ampl=1.0):
     return ne_map
 
 def fit_pb_profile(solar_radii, pb_intensity, sigma_pb):
+
+    ################ Nikolai Britavskiy pipeline ################
+    
+    good = np.isfinite(sigma_pb) & (sigma_pb > 0) & np.isfinite(pb_intensity)
+    solar_radii = solar_radii[good]
+    pb_intensity = pb_intensity[good]
+    sigma_pb = sigma_pb[good]
+
     params0 = [1e-7, 1e-7, 7, 7]
     inf_bounds = [0, 0, 0, 0]
-    sup_bounds = [1e-5, 1e-5, np.inf, np.inf]
-    sigma_pb = np.ones(pb_intensity.size) * 1e-7
-    params, cov_matrix = curve_fit(pb_func, solar_radii, pb_intensity, sigma=sigma_pb, p0=params0,
-                        bounds=(inf_bounds, sup_bounds))
+    sup_bounds = [1e-5, 1e-5, 12, 12]   # was np.inf, np.inf -- cap the exponents
+
+    #print("radii:", solar_radii[:5])
+    #print("sigma_pb:", sigma_pb[:5])
+    #print("pb_intensity:", pb_intensity[:5])
+
+    params, cov_matrix = curve_fit(
+        pb_func, solar_radii, pb_intensity, 
+        sigma=sigma_pb, p0=params0, 
+        bounds=(inf_bounds, sup_bounds)
+    )
+
+    #############################################################
+    
     #chi quadro
     residui = pb_intensity - pb_func(solar_radii, params[0], params[1], params[2], params[3])
     ssr = np.sum((residui/sigma_pb)**2)
