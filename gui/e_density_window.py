@@ -91,7 +91,7 @@ def ne_calc(pb_map, r_in=1.1, r_out=3.0, ampl=1.0):
 def fit_pb_profile(solar_radii, pb_intensity, sigma_pb):
 
     ################ Nikolai Britavskiy pipeline ################
-    
+
     good = np.isfinite(sigma_pb) & (sigma_pb > 0) & np.isfinite(pb_intensity)
     solar_radii = solar_radii[good]
     pb_intensity = pb_intensity[good]
@@ -108,7 +108,8 @@ def fit_pb_profile(solar_radii, pb_intensity, sigma_pb):
     params, cov_matrix = curve_fit(
         pb_func, solar_radii, pb_intensity, 
         sigma=sigma_pb, p0=params0, 
-        bounds=(inf_bounds, sup_bounds)
+        bounds=(inf_bounds, sup_bounds),
+        maxfev=10000,       # max func evaluations
     )
 
     #############################################################
