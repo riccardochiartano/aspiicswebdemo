@@ -30,33 +30,68 @@ tabname = 'comparison'
 
 def comparison_window():
     col_left, col_main, col_right = st.columns([1, 3, 1])
-    
+
     with col_main:
         st.subheader("Comparison")
 
-        with st.form(key='comparison_form'):
-            col1, col2 = st.columns([1,1])
-            with col1:
-                file1_name = st.text_input("File name:", key='file1name_txtin', placeholder='File 1')
-                file1 = st.file_uploader("Upload first file:", type=["fits", "fts"])
-            with col2: 
-                file2_name = st.text_input("File name:", key='file2name_txtin', placeholder='File 2')
-                file2 = st.file_uploader("Upload second file:", type=["fits", "fts"])
-            
-            header_comp = st.checkbox('Compare headers')
+        tab_maps, tab_profiles = st.tabs(["Map comparison", "Profile comparison"])
 
-            with st.container(horizontal=True):
-                st.space('stretch')
-                do_compare = st.form_submit_button("Compare maps")
-                st.space('stretch')
+        with tab_maps:
+            map_comparison_tab()
 
-        if do_compare:
-            try:
-                map1 = file_to_smap(file1)
-                map2 = file_to_smap(file2)
-                show_comparison(map1, map2, file1_name, file2_name, header_comp)
-            except:
-                st.error('Upload all the files first')
+        with tab_profiles:
+            profile_comparison_tab()
+
+def map_comparison_tab():
+    with st.form(key='comparison_form'):
+        col1, col2 = st.columns([1,1])
+        with col1:
+            file1_name = st.text_input("File name:", key='file1name_txtin', placeholder='File 1')
+            file1 = st.file_uploader("Upload first file:", type=["fits", "fts"])
+        with col2: 
+            file2_name = st.text_input("File name:", key='file2name_txtin', placeholder='File 2')
+            file2 = st.file_uploader("Upload second file:", type=["fits", "fts"])
+        
+        header_comp = st.checkbox('Compare headers')
+        
+        with st.container(horizontal=True):
+            st.space('stretch')
+            do_compare = st.form_submit_button("Compare maps")
+            st.space('stretch')
+
+    if do_compare:
+        try:
+            map1 = file_to_smap(file1)
+            map2 = file_to_smap(file2)
+            show_comparison(map1, map2, file1_name, file2_name, header_comp)
+        except:
+            st.error('Upload all the files first')
+
+def profile_comparison_tab():
+    with st.form(key='prof_comparison_form'):
+        col1, col2 = st.columns([1,1])
+        with col1:
+            file1_name = st.text_input("File name:", key='prof_file1name_txtin', placeholder='File 1')
+            file1 = st.file_uploader("Upload first file:", type=["fits", "fts"])
+            rmin1 = st.number_input('r_min1')
+        with col2: 
+            file2_name = st.text_input("File name:", key='prof_file2name_txtin', placeholder='File 2')
+            file2 = st.file_uploader("Upload second file:", type=["fits", "fts"])
+            rmin2 = st.number_input('r_min2')
+        
+        with st.container(horizontal=True):
+            st.space('stretch')
+            do_profiles = st.form_submit_button("Compare profiles")
+            st.space('stretch')
+
+    if do_profiles:
+        try:
+            map1 = file_to_smap(file1)
+            map2 = file_to_smap(file2)
+            show_profile_comparison(map1, map2, file1_name, file2_name)
+        except:
+            st.error('Upload all the files first')
+
 
             
 
@@ -84,6 +119,14 @@ def show_comparison(m1, m2, m1_name='File 1', m2_name='File 2', header_comp=Fals
     
     return
 
+def show_profile_comparison(m1, m2, m1_name='File 1', m2_name='File 2'):
+    if not m1_name:  
+        m1_name = m1.meta.get('filename', 'File 1')
+        #m1_name = 'File 1'
+    if not m2_name:
+        m2_name = m2.meta.get('filename', 'File 2')
+        #m2_name = 'File 2'
+    
 
 def diff_ratio_images(diff, divide, m1_name, m2_name):
     fig, axes = plt.subplots(1, 2, figsize=(12, 6)) 
@@ -130,3 +173,4 @@ def diff_ratio_hists(diff, divide, m1_name, m2_name):
     plt.tight_layout()
     
     return fig
+

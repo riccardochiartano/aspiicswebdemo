@@ -4,6 +4,7 @@ import numpy as np
 import sunpy.map
 from pathlib import Path
 import astropy.units as u
+from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
@@ -149,12 +150,17 @@ def fit_pb_profile(solar_radii, pb_intensity, sigma_pb):
     st.pyplot(fig)
 
 def calc_ne_profile(params, solar_radii):
-    u_ld = 0.63                 #coefficiente limb-darkening 0.63 balboni
+    u_ld = 0.63                 # coefficiente limb-darkening 0.63 balboni
     sigma_t = 6.6524e-25        # cm^2    thomson cross sect 
+    sigma_t = (const.sigma_T).to(u.cm**2)     # cm^2    thomson cross sect 
     Rsun = 6.9634e10            # u.R_sun cm
-    Bsun = 1                    # u.W / u.m^2
+    Rsun = (const.R_sun).to(u.cm)
+    Bsun = 1                    # u.Bsun
 
-    K = (3*Bsun*sigma_t) / ((1-u_ld/3)*16*np.pi)
+    #K = (3*Bsun*sigma_t) / ((1-u_ld/3)*16*np.pi)
+    #st.write(f'cconst = {(K*Rsun) * 1e8:.2e}')
+    K = (3*Bsun*sigma_t*np.pi) / ((1-u_ld/3)*16)
+    #st.write(f'cconst = {((K*Rsun) * 1e8):.2e}')
 
     b0 = params[2] + 1
     b1 = params[3] + 1
@@ -162,6 +168,7 @@ def calc_ne_profile(params, solar_radii):
     a1 = params[1] * (np.sqrt(np.pi)*K*Rsun)**(-1) * (gamma((params[3]+3)*0.5) / gamma((params[3]+2)*0.5))
 
     ne = ne_func(solar_radii, a0, a1, b0, b1, u_ld)
+    #st.write(f'geom = {((1-u_ld)*A(solar_radii) + u_ld*B(solar_radii))}')
 
     return ne
 
