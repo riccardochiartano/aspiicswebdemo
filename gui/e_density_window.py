@@ -53,6 +53,7 @@ def e_density_window():
                     download_map_btn(ne_map)
         else:
             st.info('Please upload a pB FITS file to start.')
+            st.warning('Attention: the inversion pipeline has been corrected (fix to the normalization constant in the van de Hulst inversion). It is recommended to re-compute the electron density images obtained before 16-10-2026.')
 
 
 def ne_calc(pb_map, r_in=1.1, r_out=3.0, ampl=1.0):
