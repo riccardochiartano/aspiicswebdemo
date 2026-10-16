@@ -157,15 +157,12 @@ def calc_ne_profile(params, solar_radii):
     Rsun = (const.R_sun).to(u.cm)
     Bsun = 1                    # u.Bsun
 
-    #K = (3*Bsun*sigma_t) / ((1-u_ld/3)*16*np.pi)
-    #st.write(f'cconst = {(K*Rsun) * 1e8:.2e}')
-    K = (3*Bsun*sigma_t*np.pi) / ((1-u_ld/3)*16)
-    #st.write(f'cconst = {((K*Rsun) * 1e8):.2e}')
+    K = 3/8 * sigma_t * Rsun * Bsun / (1-u_ld/3)
 
     b0 = params[2] + 1
     b1 = params[3] + 1
-    a0 = params[0] * (np.sqrt(np.pi)*K*Rsun)**(-1) * (gamma((params[2]+3)*0.5) / gamma((params[2]+2)*0.5))
-    a1 = params[1] * (np.sqrt(np.pi)*K*Rsun)**(-1) * (gamma((params[3]+3)*0.5) / gamma((params[3]+2)*0.5))
+    a0 = 2 * params[0] * (np.sqrt(np.pi)*K)**(-1) * (gamma((params[2]+3)*0.5) / gamma((params[2]+2)*0.5))
+    a1 = 2 * params[1] * (np.sqrt(np.pi)*K)**(-1) * (gamma((params[3]+3)*0.5) / gamma((params[3]+2)*0.5))
 
     ne = ne_func(solar_radii, a0, a1, b0, b1, u_ld)
     #st.write(f'geom = {((1-u_ld)*A(solar_radii) + u_ld*B(solar_radii))}')
