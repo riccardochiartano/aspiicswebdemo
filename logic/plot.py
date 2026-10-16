@@ -93,14 +93,18 @@ def plot_profile(solar_map, line, r_start):
     ax.set_ylabel(f"Intensity [{solar_map.meta['bunit']}]")
     return fig
 
-def plot_rad_profile(fig, ax, solar_map, profile, radii, angle):
-    ax.plot(radii, profile, label=f'{angle:.0f}°')
+def plot_rad_profile(fig, ax, solar_map, profile, radii, angle, label=None):
+    if label is None:
+        label = f'{angle:.0f}°'
+    ax.plot(radii, profile, label=label)
     ax.set_xlabel("Distance from solar center [Rsun]")
     ax.set_ylabel(f"Intensity [{solar_map.meta.get('bunit', 'bunit')}]")
     return fig
 
-def plot_pol_profile(fig, ax, solar_map, profile, angles, dist):
-    ax.plot(angles, profile, label=f'{dist:.1f} Rsun')
+def plot_pol_profile(fig, ax, solar_map, profile, angles, dist, label=None):
+    if label is None:
+        label = f'{dist:.1f} Rsun'
+    ax.plot(angles, profile, label=label)
     ax.set_xlabel("Angle [deg]")
     ax.set_ylabel(f"Intensity [{solar_map.meta.get('bunit', 'bunit')}]")
     return fig

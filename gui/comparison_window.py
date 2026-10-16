@@ -21,8 +21,8 @@ from PIL import Image, ImageDraw, ImageFont
 import imageio.v3 as iio
 
 
-from logic.utils import sun_center, remove_occulter, define_mask, file_to_smap
-
+from logic.utils import sun_center, remove_occulter, define_mask, file_to_smap, radial_profile, polar_profile
+from logic.plot import plot_rad_profile, plot_pol_profile
 
 base_dir = Path(__file__).resolve().parent.parent
 
@@ -34,13 +34,13 @@ def comparison_window():
     with col_main:
         st.subheader("Comparison")
 
-        tab_maps, tab_profiles = st.tabs(["Map comparison", "Profile comparison"])
-
-        with tab_maps:
-            map_comparison_tab()
+        tab_profiles, tab_maps = st.tabs(["Profile comparison", "Map comparison"])
 
         with tab_profiles:
             profile_comparison_tab()
+
+        with tab_maps:
+            map_comparison_tab()
 
 def map_comparison_tab():
     with st.form(key='comparison_form'):
@@ -73,12 +73,18 @@ def profile_comparison_tab():
         with col1:
             file1_name = st.text_input("File name:", key='prof_file1name_txtin', placeholder='File 1')
             file1 = st.file_uploader("Upload first file:", type=["fits", "fts"])
-            rmin1 = st.number_input('r_min1')
-        with col2: 
+            rmin1 = st.number_input('R min for first file', value=1.0)
+            rmax1 = st.number_input('R_max for first file', value=3.0)
+            angle1 = st.number_input('Angle for first file', value=0.0)
+            ampl1 = st.number_input('Amplitude for first file', value=1.0)
+        with col2:
             file2_name = st.text_input("File name:", key='prof_file2name_txtin', placeholder='File 2')
             file2 = st.file_uploader("Upload second file:", type=["fits", "fts"])
-            rmin2 = st.number_input('r_min2')
-        
+            rmin2 = st.number_input('R min for second file', value=1.0)
+            rmax2 = st.number_input('R_max for second file', value=3.0)
+            angle2 = st.number_input('Angle for second file', value=0.0)
+            ampl2 = st.number_input('Amplitude for second file', value=1.0)
+
         with st.container(horizontal=True):
             st.space('stretch')
             do_profiles = st.form_submit_button("Compare profiles")
@@ -88,12 +94,16 @@ def profile_comparison_tab():
         try:
             map1 = file_to_smap(file1)
             map2 = file_to_smap(file2)
-            show_profile_comparison(map1, map2, file1_name, file2_name)
-        except:
-            st.error('Upload all the files first')
-
-
-            
+            show_profile_comparison(
+                map1, map2,
+                file1_name, file2_name,
+                angle1, rmin1, rmax1, ampl1,
+                angle2, rmin2, rmax2, ampl2,
+            )
+        except Exception as e:
+            st.error(f'Error: {e}')
+    else:
+        st.info("BETA: Only radial profiles for now..")
 
 def show_comparison(m1, m2, m1_name='File 1', m2_name='File 2', header_comp=False):
     if header_comp:
@@ -119,14 +129,32 @@ def show_comparison(m1, m2, m1_name='File 1', m2_name='File 2', header_comp=Fals
     
     return
 
-def show_profile_comparison(m1, m2, m1_name='File 1', m2_name='File 2'):
-    if not m1_name:  
+def show_profile_comparison(m1, m2,
+                            m1_name='File 1', m2_name='File 2',
+                            angle1=0.0, rmin1=1.0, rmax1=2.5, ampl1=1.0,
+                            angle2=0.0, rmin2=1.0, rmax2=2.5, ampl2=1.0,
+                            nradii=100):
+    if not m1_name:
         m1_name = m1.meta.get('filename', 'File 1')
-        #m1_name = 'File 1'
     if not m2_name:
         m2_name = m2.meta.get('filename', 'File 2')
-        #m2_name = 'File 2'
-    
+
+    rad_prof1, radii1, err1 = radial_profile(
+        m1, np.deg2rad(angle1), rmin1, rmax1, np.deg2rad(ampl1), nradii=nradii
+    )
+    rad_prof2, radii2, err2 = radial_profile(
+        m2, np.deg2rad(angle2), rmin2, rmax2, np.deg2rad(ampl2), nradii=nradii
+    )
+
+    fig_rad, ax_rad = plt.subplots(figsize=(6, 4), clear=True)
+
+    fig_rad = plot_rad_profile(fig_rad, ax_rad, m1, rad_prof1, radii1, angle1, label=f'{m1_name} @ {angle1:.0f}°')
+    fig_rad = plot_rad_profile(fig_rad, ax_rad, m2, rad_prof2, radii2, angle2, label=f'{m2_name} @ {angle2:.0f}°')
+
+    ax_rad.legend()
+    ax_rad.grid()
+    ax_rad.set_yscale('log')
+    st.pyplot(fig_rad)    
 
 def diff_ratio_images(diff, divide, m1_name, m2_name):
     fig, axes = plt.subplots(1, 2, figsize=(12, 6)) 
