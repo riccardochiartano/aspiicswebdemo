@@ -17,14 +17,15 @@ def sun_center (solar_map):
     sun_x, sun_y = solar_map.wcs.world_to_pixel(sun_center)
     return (int(sun_x), int(sun_y))
 
-def plot_NE_labels(ax, solar_map, length_arcsec=600, offset=90, color='gray', fontsize=17, draw_limb=False, limb_c='gray', limb_s='-'):
+def plot_NE_labels(ax, solar_map, length_arcsec=600, offset=60,
+                   color='gray', fontsize=10, draw_limb=False,
+                   limb_c='gray', limb_s='-'):
 
     center = SkyCoord(0*u.arcsec, 0*u.arcsec, frame=solar_map.coordinate_frame)
-
     north = SkyCoord(0*u.arcsec,  length_arcsec*u.arcsec, frame=solar_map.coordinate_frame)
-    south = SkyCoord(0*u.arcsec,  -length_arcsec*u.arcsec, frame=solar_map.coordinate_frame)
+    south = SkyCoord(0*u.arcsec, -length_arcsec*u.arcsec, frame=solar_map.coordinate_frame)
     east  = SkyCoord(-length_arcsec*u.arcsec, 0*u.arcsec, frame=solar_map.coordinate_frame)
-    west  = SkyCoord(length_arcsec*u.arcsec, 0*u.arcsec, frame=solar_map.coordinate_frame)
+    west  = SkyCoord( length_arcsec*u.arcsec, 0*u.arcsec, frame=solar_map.coordinate_frame)
 
     cx, cy = solar_map.world_to_pixel(center)
     nx, ny = solar_map.world_to_pixel(north)
@@ -37,45 +38,46 @@ def plot_NE_labels(ax, solar_map, length_arcsec=600, offset=90, color='gray', fo
     dxS, dyS = sx.value - cx.value, sy.value - cy.value
     dxW, dyW = wx.value - cx.value, wy.value - cy.value
 
-    normN = np.hypot(dxN, dyN)      #same as np.sqrt(dxN**2 + dyN**2)
+    normN = np.hypot(dxN, dyN)
     normE = np.hypot(dxE, dyE)
     normS = np.hypot(dxS, dyS)
     normW = np.hypot(dxW, dyW)
 
-    fontsize = fontsize/(solar_map.scale[0].value)**0.4
-    offset = offset/solar_map.scale[0].value
+    rsun_pix = 960.0 / solar_map.scale[0].value
+    image_width = solar_map.data.shape[-1]
 
-    # "N"
-    ax.text(nx.value + offset * dxN / normN,
-            ny.value + offset * dyN / normN,
+    st.write(rsun_pix, image_width)
+    if rsun_pix*2 > 1/10 * image_width:
+        offset_pix = 0.75 * rsun_pix
+        if rsun_pix*2 < 1/4 * image_width:
+            fontsize = fontsize - 2
+    else:
+        offset_pix = rsun_pix + offset
+
+    ax.text(cx.value + offset_pix * dxN / normN,
+            cy.value + offset_pix * dyN / normN,
             'N', color=color, fontsize=fontsize,
             ha='center', va='center', fontweight='bold')
 
-    # "E"
-    ax.text(ex.value + offset * dxE / normE,
-            ey.value + offset * dyE / normE,
+    ax.text(cx.value + offset_pix * dxE / normE,
+            cy.value + offset_pix * dyE / normE,
             'E', color=color, fontsize=fontsize,
             ha='center', va='center', fontweight='bold')
-    
-    # "S"
-    ax.text(sx.value + offset * dxS / normS,
-            sy.value + offset * dyS / normS,
+
+    ax.text(cx.value + offset_pix * dxS / normS,
+            cy.value + offset_pix * dyS / normS,
             'S', color=color, fontsize=fontsize,
             ha='center', va='center', fontweight='bold')
 
-    # "W"
-    ax.text(wx.value + offset * dxW / normW,
-            wy.value + offset * dyW / normW,
+    ax.text(cx.value + offset_pix * dxW / normW,
+            cy.value + offset_pix * dyW / normW,
             'W', color=color, fontsize=fontsize,
             ha='center', va='center', fontweight='bold')
-    
-    if draw_limb:
-        rsun = 960 * u.arcsec
-        rsun_pix = rsun.value / solar_map.scale[0].value
-        circle = Circle((cx.value, cy.value), radius=rsun_pix,
-                        edgecolor=color, facecolor='none', lw=1.5, linestyle='--')
-        ax.add_patch(circle)
 
+    if draw_limb:
+        circle = Circle((cx.value, cy.value), radius=rsun_pix,
+                        edgecolor=limb_c, facecolor='none', lw=1.5, linestyle=limb_s)
+        ax.add_patch(circle)
 
 def plot_profile(solar_map, line, r_start):
     '''

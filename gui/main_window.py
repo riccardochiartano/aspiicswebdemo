@@ -34,7 +34,7 @@ def SolarMapViewer():
     if "show_right_panel" not in st.session_state:
         st.session_state.show_right_panel = False
     if "show_ne" not in st.session_state:
-        st.session_state.show_ne = False
+        st.session_state.show_ne = True
     if "show_files" not in st.session_state:
         st.session_state.show_files = False
     if "show_rprof" not in st.session_state:
@@ -163,7 +163,7 @@ def SolarMapViewer():
                 "Map Display Options",
                 options=["Interactive", "Rotate", "Grid", "Header", 
                             "Radial Profiles", "Polar Profiles", "N-E Labels"],
-                default=["Grid"],
+                default=["Grid", "N-E Labels"],
                 selection_mode="multi",
                 key="map_ctrl",
                 on_change=toggle_plot_options,
