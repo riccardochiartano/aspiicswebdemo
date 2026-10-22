@@ -163,7 +163,7 @@ def SolarMapViewer():
                     ["Linear", 
                      "Log",
                       #"MGN", 
-                      "WOW filter", 
+                      #"WOW filter", 
                       "Unsharp masking", 
                       #"NRGF filter (Slow)"
                     ],
