@@ -9,6 +9,7 @@ from astropy.io import fits
 import tempfile
 import plotly.express as px
 import datetime
+import io
 from streamlit_plotly_events import plotly_events
 
 from logic.process import wow_filter, log_scale, nrgf_filter, mgn_filter, unsharp_mask_filter
@@ -18,6 +19,32 @@ from gui.profile_window import profile_window
 import logic.rob.aspiics_misc as am
 
 #from resources.metismap.metis_map_vAB import METISMap
+
+# cache
+@st.cache_data(show_spinner=False)
+def load_map_from_file(file_bytes, filename):
+    uploaded_file = io.BytesIO(file_bytes)
+    uploaded_file.name = filename
+    return file_to_smap(uploaded_file)
+
+@st.cache_data(show_spinner=False)
+def load_map_from_url(url):
+    return sunpy.map.Map(url)
+
+@st.cache_data(show_spinner=False)
+def apply_filter_cached(data, meta, scale_option):
+    map_plot = sunpy.map.Map(data, meta)
+    if scale_option == "Log":
+        map_plot = log_scale(map_plot)
+    elif scale_option == "MGN":
+        map_plot = mgn_filter(map_plot)
+    elif scale_option == "WOW filter":
+        map_plot = wow_filter(map_plot)
+    elif scale_option == "Unsharp masking":
+        map_plot = unsharp_mask_filter(map_plot)
+    elif scale_option == "NRGF filter":
+        map_plot = nrgf_filter(map_plot)
+    return map_plot
 
 
 tabname = 'main'
@@ -84,7 +111,8 @@ def SolarMapViewer():
             uploaded_file = st.file_uploader("Upload .fits file", type=["fits", "fts"], key="fits_uploader")
             if uploaded_file is not None:
                 try:
-                    solar_map = file_to_smap(uploaded_file)
+                    #solar_map = file_to_smap(uploaded_file)
+                    solar_map = load_map_from_file(uploaded_file.getvalue(), uploaded_file.name)
                     #st.session_state.current_map = solar_map
                     st.session_state.original_map = solar_map
                     st.success(f"Loaded file: {uploaded_file.name}")
@@ -124,9 +152,9 @@ def SolarMapViewer():
 
 
             # current map
-            if st.session_state.current_map is not None:
-                map_plot = sunpy.map.Map(st.session_state.current_map.data, st.session_state.current_map.meta)
-                image_plot = map_plot.data
+            #if st.session_state.current_map is not None:
+            #    map_plot = sunpy.map.Map(st.session_state.current_map.data, st.session_state.current_map.meta)
+            #    image_plot = map_plot.data
 
             col1, col2 = st.columns([3,1])
             
@@ -135,7 +163,7 @@ def SolarMapViewer():
                     ["Linear", 
                      "Log",
                       #"MGN", 
-                      #"WOW filter", 
+                      "WOW filter", 
                       "Unsharp masking", 
                       #"NRGF filter (Slow)"
                     ],
@@ -208,16 +236,21 @@ def SolarMapViewer():
             # map container
             map_container = st.container()
 
-            if scale_option == "Log":
-                map_plot = log_scale(map_plot) 
-            if scale_option == "MGN":
-                map_plot = mgn_filter(map_plot) 
-            if scale_option == "WOW filter":
-                map_plot = wow_filter(map_plot)
-            if scale_option == "Unsharp masking":
-                map_plot = unsharp_mask_filter(map_plot)
-            if scale_option == "NRGF filter":
-                map_plot = nrgf_filter(map_plot)
+            #if scale_option == "Log":
+            #    map_plot = log_scale(map_plot) 
+            #if scale_option == "MGN":
+            #    map_plot = mgn_filter(map_plot) 
+            #if scale_option == "WOW filter":
+            #    map_plot = wow_filter(map_plot)
+            #if scale_option == "Unsharp masking":
+            #    map_plot = unsharp_mask_filter(map_plot)
+            #if scale_option == "NRGF filter":
+            #    map_plot = nrgf_filter(map_plot)
+            map_plot = apply_filter_cached(
+                st.session_state.current_map.data,
+                st.session_state.current_map.meta,
+                scale_option
+            )
             image_plot = map_plot.data   
             #map_plot = sunpy.map.Map(image_plot, st.session_state.current_map.meta)
 
@@ -333,80 +366,13 @@ def SolarMapViewer():
         st.space('large')
         
         if st.session_state.star_search_ckb:
-            st.header('Star Search')
-            with st.form("star_search_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    catalog_display = st.selectbox(
-                        'Star Catalog:', 
-                        options=['Gaia', 'Simbad'],
-                        index=0
-                    )
-                    starcatalog = catalog_display.lower()                
-                with col2:
-                    fmagn = st.number_input('Max Magnitude:', value=8.0)
-
-                with st.container(horizontal=True):
-                    st.space('stretch')
-                    submitted = st.form_submit_button("Search Stars")
-                    st.space('stretch')
-                    
-                    if submitted:
-                        stars = search_stars(map_plot, catalog_name=starcatalog, fmagn=fmagn)
-                        #plot_stars(ax_map, stars, not_idntf)
-                        st.session_state.stars = stars
-                        st.rerun()
-                        #st.write(f"Stelle con picco identificato: {len(stars)}")
-                        #st.pyplot(fig_map, width='content')
-                        #st.rerun()
-            if st.session_state.stars is not None:
-                if not st.session_state.stars.empty:
-                    st.write(f"Stars found: {len(st.session_state.stars)}")
-                    st.dataframe(st.session_state.stars)
-                else:
-                    st.warning("No stars found with the selected criteria.")
-            st.divider()
-
-
-        if st.session_state.show_shiftc:
-            sunx, suny = sun_center(map_plot)
-            st.header('Sun Center')
-            #with st.container(horizontal=True):
-            #    new_sunx = st.number_input('X [px]', value=sunx)
-            #    st.space('stretch')
-            #    new_suny = st.number_input('Y [px]', value=suny)
-            #st.space('medium')
-            #with st.container(horizontal=True):
-            #    st.space('stretch')
-            #    if st.button('Submit'):
-            #        x_diff = new_sunx - sunx
-            #        y_diff = new_suny - suny
-            #        st.session_state.current_map.meta['crpix1'] += x_diff 
-            #        st.session_state.current_map.meta['crpix2'] += y_diff 
-            #        st.rerun()
-            #    st.space('stretch')
-
-            with st.form("shift_center_form"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    new_sunx = st.number_input('X [px]', value=sunx)
-                with col2:
-                    new_suny = st.number_input('Y [px]', value=suny)
-
-                with st.container(horizontal=True):
-                    st.space('stretch')
-                    submitted = st.form_submit_button("Submit")
-                    st.space('stretch')
-                    
-                    if submitted:
-                        x_diff = new_sunx - sunx
-                        y_diff = new_suny - suny
-                        st.session_state.xy_diff = [x_diff, y_diff]
-                        #st.session_state.current_map.meta['crpix1'] += x_diff 
-                        #st.session_state.current_map.meta['crpix2'] += y_diff 
-                        st.rerun()
+            star_search_panel(map_plot)
             st.divider()
             
+
+        if st.session_state.show_shiftc:
+            shift_center_panel(map_plot)
+            st.divider()
 
 
         if st.session_state.show_header:
@@ -414,63 +380,62 @@ def SolarMapViewer():
             header = st.session_state.current_map.meta
             st.json(header)
 
-        
-def show_sidebar():
-    st.markdown("""
-    <style>
-    .stSidebar div.stButton > button {
-        all: unset;                 /* rimuove tutto lo stile di default */
-        color: inherit;             /* usa il colore del testo normale */
-        font: inherit;              /* usa font e dimensione di st.write() */
-        cursor: pointer;            /* mostra il cursore a mano quando ci passi sopra */
-        text-align: left;           /* allinea il testo a sinistra */
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.sidebar.title("")
+@st.fragment
+def star_search_panel(map_plot):
+    st.header('Star Search')
+    with st.form("star_search_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            catalog_display = st.selectbox(
+                'Star Catalog:', 
+                options=['Simbad', 'Gaia'],
+                index=0
+            )
+            starcatalog = catalog_display.lower()                
+        with col2:
+            fmagn = st.number_input('Max Magnitude:', value=8.0)
 
-    with st.sidebar.expander("File"):
-        if "show_open" not in st.session_state:
-            st.session_state.show_open = False
+        with st.container(horizontal=True):
+            st.space('stretch')
+            submitted = st.form_submit_button("Search Stars")
+            st.space('stretch')
+            
+            if submitted:
+                stars = search_stars(map_plot, catalog_name=starcatalog, fmagn=fmagn)
+                st.session_state.stars = stars
+                #st.rerun(scope="fragment")
+                st.rerun()
+    if st.session_state.stars is not None:
+        if not st.session_state.stars.empty:
+            st.write(f"Stars found: {len(st.session_state.stars)}")
+            st.dataframe(st.session_state.stars)
+        else:
+            st.warning("No stars found with the selected criteria.")
 
-        if st.button("Open", key="open"):
-            st.session_state.show_open = not st.session_state.show_open
+@st.fragment
+def shift_center_panel(map_plot):
+    sunx, suny = sun_center(map_plot)
+    st.header('Sun Center')
 
-        if st.session_state.show_open:
-            uploaded_file = st.file_uploader("", type=["fits", "fts"], key="fits_uploader")
-            if uploaded_file is not None:
-                try:
-                    solar_map = file_to_smap(uploaded_file)
-                    st.session_state.current_map = solar_map
-                    st.success(f"File caricato: {uploaded_file.name}")
-                except Exception as e:
-                    st.error(f"Errore caricamento file: {e}")
+    with st.form("shift_center_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            new_sunx = st.number_input('X [px]', value=sunx)
+        with col2:
+            new_suny = st.number_input('Y [px]', value=suny)
 
-        if st.button("Load from web", key="load"):
-            #solar_map = sunpy.map.Map('https://p3sc.oma.be/datarepfiles/L3/v2/aspiics_l3_pb_1540C0280001_20250909T134312.fits')
-            #st.session_state.current_map = solar_map
-            #st.success(f"Loaded web file")
-            #st.rerun()
-            st.write('do it from the main tab...')
-        
+        with st.container(horizontal=True):
+            st.space('stretch')
+            submitted = st.form_submit_button("Submit")
+            st.space('stretch')
+            
+            if submitted:
+                x_diff = new_sunx - sunx
+                y_diff = new_suny - suny
+                st.session_state.xy_diff = [x_diff, y_diff]
+                st.rerun()
 
-    with st.sidebar.expander('Image'):
-        if st.button("Show header", key="show_header_btn"):
-            st.session_state.show_header = not st.session_state.show_header
-            st.session_state.show_right_panel = not st.session_state.show_right_panel
-            print('show header')
-        if st.button("Show N-E axis", key="show_NE"):
-            st.session_state.show_ne = not st.session_state.show_ne
-        #if st.button("Rotate image", key="rotate"):
-        #    st.write('work in progress...')
 
-    #with st.sidebar.expander('Process'):
-    #    if st.button("Remove dark+bias", key="rem_darkbias"):
-    #        st.write('work in progress...')
-    #    if st.button("Flat Field correction", key="FF_corr"):
-    #        st.write('work in progress...')
-        
 def update_right_panel_visibility():
     header_active = "Header" in st.session_state.map_ctrl
     shift_active = st.session_state.get('show_shiftc', False)
@@ -531,105 +496,77 @@ def toggle_plot_options():
 def show_webloader():
     st.subheader('Upload from web')
     st.write('')
-    
+
     level = st.radio("Level", ["L1", "L2", "L3"], horizontal=True, key=f'level_{tabname}', index=2)
-
-    if level != 'L3':
-        col, col1, col2, col3 = st.columns([1,1,1,1])
-        with col:
-            st.write('Filter')
-        with col1:
-            flt_wb = st.checkbox('Wideband', key=f'wb_{tabname}')    
-            flt_p2 = st.checkbox('Polarizer 0°', key=f'p2_{tabname}')    
-        with col2:
-            flt_fe = st.checkbox('Fe XIV', key=f'fe_{tabname}')
-            flt_p1 = st.checkbox('Polarizer 60°', key=f'p1_{tabname}')    
-        with col3:
-            flt_he = st.checkbox('He I D3', key=f'he_{tabname}')    
-            flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
-
-        #checkboxes = {
-        #    "wb": flt_wb,
-        #    "fe": flt_fe,
-        #    "he": flt_he,
-        #    "p1": flt_p1,
-        #    "p2": flt_p2,
-        #    "p3": flt_p3
-        #}
-        checkboxes = {
-            "Wide": flt_wb,
-            "Fe": flt_fe,
-            "He": flt_he,
-            "Polarizer%2060": flt_p1,
-            "Polarizer%200": flt_p2,
-            "Polarizer%20120": flt_p3
-        }
-    else:
-        col, col1, col2, col3 = st.columns([1,1,1,1])
-        with col:
-            st.write('Type')
-        with col1:
-            flt_bt = st.checkbox('Total brightness', key=f'bt_{tabname}')    
-            flt_gr = st.checkbox('Green line', key=f'p2_{tabname}')    
-        with col2:
-            flt_pb = st.checkbox('Polarisation brightness', key=f'pb_{tabname}')
-            flt_he = st.checkbox('He I D3 line', key=f'p1_{tabname}')    
-        with col3:
-            flt_pa = st.checkbox('Polarisation angle', key=f'he_{tabname}')    
-        #    flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')    
-
-        #checkboxes = {
-        #    "bt": flt_bt,
-        #    "pb": flt_pb,
-        #}
-        checkboxes = {
-            "Total": flt_bt,
-            "Polarisation brightness": flt_pb,
-            "Polarisation angle": flt_pa,
-            "Green": flt_gr,
-            "He": flt_he,
-        }
-
-    flt_list = [key for key, checked in checkboxes.items() if checked]
-
-    # if nothing checked -> 
-    if not flt_list:
-        flt_list = list(checkboxes.keys())
-
-
-    orbit_id = st.text_input("Orbit ID", "", key=f'oid_{tabname}', help="Check the orbit programs on the [ASPIICS website](https://www.sidc.be/proba-3/commanding/)")
-    cycle_id = st.text_input("Cycle ID (8 digits)", "", key=f'cid_{tabname}')
-    #seq_num = st.text_input("Sequence number", "")
-    #acq_num = st.text_input("Acquisition number", "")
-    #exp_num = st.text_input("Exposure number", "")
-
-    col1, col2 = st.columns([1,1])
-    with col1:
-        date_start = st.date_input("Start date", value=datetime.date(2025, 5, 1), format="DD.MM.YYYY", key=f'date_start_{tabname}')
-        date_end = st.date_input("End date", value=datetime.date(2026, 9, 1), format="DD.MM.YYYY", key=f'date_end_{tabname}')
-        #date_start = st.date_input("Start date", value=None, format="DD.MM.YYYY")
-        #date_end = st.date_input("End date", value=None, format="DD.MM.YYYY")
-    with col2:    
-        #time_start = st.time_input("Time", value=None, key='time_start', step=60)
-        #time_end = st.time_input("Time", value=None, key='time_end', step=60)
-        time_start = st.time_input("Time", datetime.time(0,0), step=600, key=f'time_start_{tabname}')
-        time_end = st.time_input("Time", datetime.time(23,59), step=600, key=f'time_end_{tabname}')
     
-    limit = st.text_input("Limit query results:", "10", key=f'limit_{tabname}')
+    with st.form("webloader_form"):
 
-    if st.button("Show files", key=f'shw_files_{tabname}'):
-    #    st.session_state.show_files = not st.session_state.show_files
-    #
-    #if st.session_state.show_files:
-        dt_start = datetime.datetime.combine(date_start, time_start)
-        dt_end = datetime.datetime.combine(date_end, time_end)
-            
-        #files_url = aspiics_files_url(flt_list, level, cycle_id, dt_start, dt_end)
-        files_url = aspiics_files_api(flt_list, level, orbit_id, cycle_id, dt_start, dt_end, limit)
-        #if files_url == []:
-        #    st.error('No files with these keys...')
-        st.session_state.files_url = files_url
-        
+        if level != 'L3':
+            col, col1, col2, col3 = st.columns([1,1,1,1])
+            with col:
+                st.write('Filter')
+            with col1:
+                flt_wb = st.checkbox('Wideband', key=f'wb_{tabname}')
+                flt_p2 = st.checkbox('Polarizer 0°', key=f'p2_{tabname}')
+            with col2:
+                flt_fe = st.checkbox('Fe XIV', key=f'fe_{tabname}')
+                flt_p1 = st.checkbox('Polarizer 60°', key=f'p1_{tabname}')
+            with col3:
+                flt_he = st.checkbox('He I D3', key=f'he_{tabname}')
+                flt_p3 = st.checkbox('Polarizer 120°', key=f'p3_{tabname}')
+
+            checkboxes = {
+                "Wide": flt_wb,
+                "Fe": flt_fe,
+                "He": flt_he,
+                "Polarizer%2060": flt_p1,
+                "Polarizer%200": flt_p2,
+                "Polarizer%20120": flt_p3
+            }
+        else:
+            col, col1, col2, col3 = st.columns([1,1,1,1])
+            with col:
+                st.write('Type')
+            with col1:
+                flt_bt = st.checkbox('Total brightness', key=f'bt_{tabname}')
+                flt_gr = st.checkbox('Green line', key=f'p2_{tabname}')
+            with col2:
+                flt_pb = st.checkbox('Polarisation brightness', key=f'pb_{tabname}')
+                flt_he = st.checkbox('He I D3 line', key=f'p1_{tabname}')
+            with col3:
+                flt_pa = st.checkbox('Polarisation angle', key=f'he_{tabname}')
+
+            checkboxes = {
+                "Total": flt_bt,
+                "Polarisation brightness": flt_pb,
+                "Polarisation angle": flt_pa,
+                "Green": flt_gr,
+                "He": flt_he,
+            }
+
+        orbit_id = st.text_input("Orbit ID", "", key=f'oid_{tabname}', help="Check the orbit programs on the [ASPIICS website](https://www.sidc.be/proba-3/commanding/)")
+        cycle_id = st.text_input("Cycle ID (8 digits)", "", key=f'cid_{tabname}')
+
+        col1, col2 = st.columns([1,1])
+        with col1:
+            date_start = st.date_input("Start date", value=datetime.date(2025, 5, 1), format="DD.MM.YYYY", key=f'date_start_{tabname}')
+            date_end = st.date_input("End date", value=datetime.date(2026, 9, 1), format="DD.MM.YYYY", key=f'date_end_{tabname}')
+        with col2:
+            time_start = st.time_input("Time", datetime.time(0,0), step=600, key=f'time_start_{tabname}')
+            time_end = st.time_input("Time", datetime.time(23,59), step=600, key=f'time_end_{tabname}')
+
+        limit = st.text_input("Limit query results:", "10", key=f'limit_{tabname}')
+
+        submitted = st.form_submit_button("Show files")
+        if submitted:
+            flt_list = [key for key, checked in checkboxes.items() if checked]
+            if not flt_list:
+                flt_list = list(checkboxes.keys())
+            dt_start = datetime.datetime.combine(date_start, time_start)
+            dt_end = datetime.datetime.combine(date_end, time_end)
+            files_url = aspiics_files_api(flt_list, level, orbit_id, cycle_id, dt_start, dt_end, limit)
+            st.session_state.files_url = files_url
+
     if st.session_state.files_url:
         st.write('Files found:')
         selected_files = []
@@ -644,8 +581,7 @@ def show_webloader():
         with col1:
             if st.button('Upload map', key=f'upload_map_{tabname}'):
                 if len(selected_files) == 1:
-                    #st.session_state.current_map = sunpy.map.Map(selected_files[0])
-                    upl_map = sunpy.map.Map(selected_files[0])
+                    upl_map = load_map_from_url(selected_files[0])
                     st.session_state.original_map = sunpy.map.Map(upl_map.data.astype('float'), upl_map.meta)
                     st.success(f"Loaded web file")
                     st.rerun()
@@ -653,7 +589,7 @@ def show_webloader():
                     st.error('Select only one file')
         with col2:
             download_web_files_btn(selected_files, label='Download selected files')
-        
+
     st.divider()
     st.subheader('Upload using filename')
     st.write('')
@@ -670,7 +606,65 @@ def show_webloader():
             file_version = 'v2'
         file_url = f"{baseDataURL}/{fileLevel}/{file_version}/{upl_filename}"
         st.write(f'Link: {file_url}')
-        upl_map = sunpy.map.Map(file_url)
+        upl_map = load_map_from_url(file_url)
         st.session_state.original_map = sunpy.map.Map(upl_map.data.astype('float'), upl_map.meta)
         st.success(f"Loaded web file")
         st.rerun()
+        
+################ not used ################
+
+def show_sidebar():
+    st.markdown("""
+    <style>
+    .stSidebar div.stButton > button {
+        all: unset;                 /* rimuove tutto lo stile di default */
+        color: inherit;             /* usa il colore del testo normale */
+        font: inherit;              /* usa font e dimensione di st.write() */
+        cursor: pointer;            /* mostra il cursore a mano quando ci passi sopra */
+        text-align: left;           /* allinea il testo a sinistra */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.sidebar.title("")
+
+    with st.sidebar.expander("File"):
+        if "show_open" not in st.session_state:
+            st.session_state.show_open = False
+
+        if st.button("Open", key="open"):
+            st.session_state.show_open = not st.session_state.show_open
+
+        if st.session_state.show_open:
+            uploaded_file = st.file_uploader("", type=["fits", "fts"], key="fits_uploader")
+            if uploaded_file is not None:
+                try:
+                    solar_map = file_to_smap(uploaded_file)
+                    st.session_state.current_map = solar_map
+                    st.success(f"File caricato: {uploaded_file.name}")
+                except Exception as e:
+                    st.error(f"Errore caricamento file: {e}")
+
+        if st.button("Load from web", key="load"):
+            #solar_map = sunpy.map.Map('https://p3sc.oma.be/datarepfiles/L3/v2/aspiics_l3_pb_1540C0280001_20250909T134312.fits')
+            #st.session_state.current_map = solar_map
+            #st.success(f"Loaded web file")
+            #st.rerun()
+            st.write('do it from the main tab...')
+        
+
+    with st.sidebar.expander('Image'):
+        if st.button("Show header", key="show_header_btn"):
+            st.session_state.show_header = not st.session_state.show_header
+            st.session_state.show_right_panel = not st.session_state.show_right_panel
+            print('show header')
+        if st.button("Show N-E axis", key="show_NE"):
+            st.session_state.show_ne = not st.session_state.show_ne
+        #if st.button("Rotate image", key="rotate"):
+        #    st.write('work in progress...')
+
+    #with st.sidebar.expander('Process'):
+    #    if st.button("Remove dark+bias", key="rem_darkbias"):
+    #        st.write('work in progress...')
+    #    if st.button("Flat Field correction", key="FF_corr"):
+    #        st.write('work in progress...')

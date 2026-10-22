@@ -48,8 +48,9 @@ def log_scale(smap):
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        smap.data[smap.data <= 0] = np.nan
-        log_image = np.log10(smap.data)
+        data = smap.data.copy()
+        data[data <= 0] = np.nan
+        log_image = np.log10(data)
         log_map = sunpy.map.Map(log_image, smap.meta)
     return log_map
 
@@ -60,7 +61,7 @@ def nrgf_filter(smap):
     return base_nrgf
 
 def unsharp_mask_filter(smap, radius=5, amount=2):
-    unsh_image = unsharp_mask(smap.data, radius, amount)
+    unsh_image = unsharp_mask(smap.data, radius, amount, preserve_range=True)
     unsh_map = sunpy.map.Map(unsh_image, smap.meta)
     return unsh_map
 
