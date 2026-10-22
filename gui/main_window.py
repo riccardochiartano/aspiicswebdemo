@@ -29,19 +29,26 @@ def load_map_from_file(file_bytes, filename):
 
 @st.cache_data(show_spinner=False)
 def load_map_from_url(url):
-    return sunpy.map.Map(url)
+    solar_map = sunpy.map.Map(url)
+    solar_image = solar_map.data
+    if not np.issubdtype(solar_image.dtype, np.floating):
+        solar_image = solar_image.astype(float)
+    solar_map = sunpy.map.Map(solar_image, solar_map.meta)
+    return solar_map
 
 @st.cache_data(show_spinner=False)
-def apply_filter_cached(data, meta, scale_option):
+def apply_filter_cached(data, meta, scale_option,
+                        unsharp_radius=5, unsharp_amount=2,
+                        wow_bilateral=1, wow_gamma=4, wow_h=0.99):
     map_plot = sunpy.map.Map(data, meta)
     if scale_option == "Log":
         map_plot = log_scale(map_plot)
     elif scale_option == "MGN":
         map_plot = mgn_filter(map_plot)
     elif scale_option == "WOW filter":
-        map_plot = wow_filter(map_plot)
+        map_plot = wow_filter(map_plot, bilateral=wow_bilateral, gamma=wow_gamma, h=wow_h)
     elif scale_option == "Unsharp masking":
-        map_plot = unsharp_mask_filter(map_plot)
+        map_plot = unsharp_mask_filter(map_plot, radius=unsharp_radius, amount=unsharp_amount)
     elif scale_option == "NRGF filter":
         map_plot = nrgf_filter(map_plot)
     return map_plot
@@ -82,6 +89,11 @@ def SolarMapViewer():
         st.session_state.xy_diff = None
     if 'stars' not in st.session_state:
         st.session_state.stars = None
+    st.session_state.setdefault("unsharp_radius", 5)
+    st.session_state.setdefault("unsharp_amount", 2.0)
+    st.session_state.setdefault("wow_bilateral", 1)
+    st.session_state.setdefault("wow_gamma", 4.0)
+    st.session_state.setdefault("wow_h", 0.99)
  
     if st.session_state.show_right_panel:
         col_left, col_main, _, col_right = st.columns([1, 10, 1, 8])
@@ -163,15 +175,41 @@ def SolarMapViewer():
                     ["Linear", 
                      "Log",
                       #"MGN", 
-                      #"WOW filter", 
                       "Unsharp masking", 
+                      "WOW filter", 
                       #"NRGF filter (Slow)"
                     ],
                     horizontal=True,
                     label_visibility='collapsed'  
                 )
+
+                # parameters
+                if scale_option == "Unsharp masking":
+                    with st.expander("Unsharp masking parameters", expanded=True):
+                        with st.form("unsharp_params_form"):
+                            c1, c2 = st.columns(2)
+                            with c1:
+                                st.number_input("Radius", value=5, min_value=1, max_value=20, key="unsharp_radius")
+                            with c2:
+                                st.number_input("Amount", value=2.0, min_value=0.5, max_value=5.0, step=0.1, key="unsharp_amount")
+                            st.form_submit_button("Apply")
+
+                if scale_option == "WOW filter":
+                    with st.expander("WOW filter parameters", expanded=True):
+                        with st.form("wow_params_form"):
+                            c1, c2, c3 = st.columns(3)
+                            with c1:
+                                st.number_input("Bilateral", value=1, min_value=0, max_value=5, key="wow_bilateral")
+                            with c2:
+                                st.number_input("Gamma", value=4.0, min_value=1.0, max_value=10.0, step=0.5, key="wow_gamma")
+                            with c3:
+                                st.number_input("h", value=0.99, min_value=0.1, max_value=1.0, step=0.01, key="wow_h")
+                            st.form_submit_button("Apply")
+
             with col2:
                 st.space(2)
+
+
 
             #col1, col2, col3 = st.columns([1,1,1])
             #with col1:
@@ -249,7 +287,12 @@ def SolarMapViewer():
             map_plot = apply_filter_cached(
                 st.session_state.current_map.data,
                 st.session_state.current_map.meta,
-                scale_option
+                scale_option,
+                wow_bilateral=st.session_state.wow_bilateral,
+                wow_gamma=st.session_state.wow_gamma,
+                wow_h=st.session_state.wow_h,
+                unsharp_radius=st.session_state.unsharp_radius,
+                unsharp_amount=st.session_state.unsharp_amount,
             )
             image_plot = map_plot.data   
             #map_plot = sunpy.map.Map(image_plot, st.session_state.current_map.meta)

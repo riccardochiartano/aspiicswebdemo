@@ -7,24 +7,41 @@ import sunkit_image.radial as radial
 from sunkit_image.utils import equally_spaced_bins
 from skimage.filters import unsharp_mask
 
-def wow_filter(smap):
+
+def wow_filter(smap, bilateral=1, gamma=4, h=0.99):
     """Apply WOW filter to SunPy Map."""
     if smap is None:
         raise ValueError("No solar map provided")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        median_val = np.nanmedian(smap.data)
-        clean_data = np.nan_to_num(smap.data, nan=median_val).astype(np.float64)
-        clean_data[clean_data < 0] = 0
-        clean_map = sunpy.map.Map(clean_data, smap.meta)
-        wow_map = enhance.wow(
-            clean_map,
+        data = smap.data.astype(np.float64, copy=True)        
+        finite_mask = np.isfinite(data)
+        if not finite_mask.any():
+            raise ValueError("No finite values in input data")
+        
+        median_val = np.median(data[finite_mask])
+        data[~finite_mask] = median_val
+        data[data < 0] = 0
+                
+        wow_result = enhance.wow(
+            data,
             bilateral=1,
             denoise_coefficients=[5, 2, 1],
             gamma=4,
             h=0.99
         )
+        
+        if hasattr(wow_result, 'data'):
+            wow_data = wow_result.data
+        else:
+            wow_data = wow_result
+
+        wow_data = np.asarray(wow_data)
+        if not np.isfinite(wow_data).any():
+            raise ValueError("WOW filter returned all NaN")
+        wow_map = sunpy.map.Map(wow_data, smap.meta)
+    
     return wow_map
 
 def mgn_filter(smap):
