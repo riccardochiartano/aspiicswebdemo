@@ -11,6 +11,7 @@ scipy
 scikit-image
 streamlit==1.51.0
 streamlit_plotly_events
+streamlit-drawable-canvas-fix==0.9.8
 sunpy
 watroo==0.0.4
 opencv-python-headless

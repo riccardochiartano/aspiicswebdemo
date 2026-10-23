@@ -109,6 +109,12 @@ def SolarMapViewer():
     else:
         col_left, col_main, col_right = st.columns([1, 3, 1])
 
+    with col_right:
+        st.subheader("")
+        st.space('large')
+        st.space('large')
+        canvas_results_container = st.empty()
+
     if st.session_state.original_map and not(st.session_state.demod_maps):
         smap = st.session_state.original_map
         if st.session_state.rotate_map:
@@ -428,7 +434,7 @@ def SolarMapViewer():
 
                 ## CANVAS MODE ##
                 elif st.session_state.canvas_mode:
-                    draw_extract_panel(map_plot, vmin, vmax)
+                    draw_extract_panel(map_plot, vmin, vmax, canvas_results_container)
 
                 ## STANDARD PLOT ##
                 elif not(st.session_state.intplot):
@@ -507,7 +513,7 @@ def SolarMapViewer():
                     st.session_state.show_rprof = False
                     st.session_state.show_pprof = False
                     st.session_state.show_shiftc = False
-                    
+
                     for k in ["unsharp_radius", "unsharp_amount", "wow_bilateral", "wow_gamma", "wow_h",
                             "perp_width", "hist_bins", "spline_k", "spline_s", "spline_samples",
                             "spline_uniform", "spline_nonce", "map_ctrl",
@@ -518,19 +524,20 @@ def SolarMapViewer():
                     
 
     with col_right:
-        st.subheader("")
-        st.space('large')
-        st.space('large')
-        
+        #st.subheader("")
+        #st.space('large')
+        #st.space('large')
+
+        # canvas profiles already created above
+        #canvas_results_container = st.empty()
+
         if st.session_state.star_search_ckb:
             star_search_panel(map_plot)
             st.divider()
             
-
         if st.session_state.show_shiftc:
             shift_center_panel(map_plot)
             st.divider()
-
 
         if st.session_state.show_header:
             st.subheader('Header')
@@ -597,12 +604,14 @@ def update_right_panel_visibility():
     header_active = "Header" in st.session_state.map_ctrl
     shift_active = st.session_state.get('show_shiftc', False)
     star_active = st.session_state.get('star_search_ckb', False)
-    
+    canvas_active = st.session_state.get("canvas_mode", False)
+
     # Risultato finale: basta che uno sia True
     st.session_state.show_right_panel = any([
         header_active, 
         shift_active, 
-        star_active, 
+        star_active,
+        canvas_active, 
     ])
 
 def toggle_header():

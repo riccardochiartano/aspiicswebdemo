@@ -2,10 +2,13 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import matplotlib.cm as cm
 from streamlit_drawable_canvas import st_canvas
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import splprep, splev
 from skimage.measure import profile_line
+
+from logic.plot import aspiics_cmap_new
 
 
 def _canvas_line_endpoints(obj, sx, sy):
@@ -51,12 +54,20 @@ def _sample_spline(points, n_samples, smooth, k):
     xs, ys = splev(u_new, tck)
     return np.asarray(xs), np.asarray(ys), targets
 
-
-def _make_canvas_background(data, vmin, vmax, max_canvas=700):
+def _make_canvas_background(data, vmin, vmax, cmap="gray", max_canvas=1200):
+    # Normalizza in [0, 1] e gestisci i NaN
     disp = np.nan_to_num(data, nan=vmin)
     disp = np.clip(disp, vmin, vmax)
-    disp = ((disp - vmin) / (vmax - vmin) * 255).astype(np.uint8)
-    img = Image.fromarray(disp).convert("RGB")
+    if vmax == vmin:
+        norm = np.zeros_like(disp)
+    else:
+        norm = (disp - vmin) / (vmax - vmin)
+
+    cmap_obj = cm.colormaps[cmap] if isinstance(cmap, str) else cmap
+    rgba = cmap_obj(norm)                      # shape (H, W, 4)
+    rgb = (rgba[..., :3] * 255).astype(np.uint8)
+    img = Image.fromarray(rgb).convert("RGB")
+
     scale = min(1.0, max_canvas / max(img.width, img.height))
     canvas_w, canvas_h = int(img.width * scale), int(img.height * scale)
     canvas_bg = img.resize((canvas_w, canvas_h))
@@ -64,15 +75,16 @@ def _make_canvas_background(data, vmin, vmax, max_canvas=700):
     sy = data.shape[0] / canvas_h
     return canvas_bg, canvas_w, canvas_h, sx, sy
 
-
 @st.fragment
-def draw_extract_panel(map_plot, vmin, vmax):
+def draw_extract_panel(map_plot, vmin, vmax, results_container):
+    results_container.empty()
     
     #data = map_plot.data
     # we need to flip, canvas is upside down respect to fits/sunpy
     data = np.flipud(map_plot.data)
-    canvas_bg, canvas_w, canvas_h, sx, sy = _make_canvas_background(data, vmin, vmax)
-    st.write("**######################################### beta #########################################**")
+    cmap = aspiics_cmap_new(map_plot)
+    canvas_bg, canvas_w, canvas_h, sx, sy = _make_canvas_background(data, vmin, vmax, cmap=cmap)
+    st.write("**######################################### BETA #########################################**")
     shape = st.radio(
         "Shape", ["Line", "Rectangle", "Spline"],
         horizontal=True, key="draw_shape",
@@ -162,21 +174,23 @@ def draw_extract_panel(map_plot, vmin, vmax):
             ylabel = f"Mean intensity (width {linewidth} px)"
             title = "Perpendicular-averaged Profile"
 
-        fig, ax = plt.subplots(figsize=(5, 3.5))
-        ax.plot(distances, profile, color="crimson", lw=1.2)
-        ax.set_xlabel("Distance along line (pixels)")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid(alpha=0.3)
-        st.pyplot(fig, use_container_width=True)
-
-        st.caption(
-            f"({x1:.1f}, {y1:.1f}) → ({x2:.1f}, {y2:.1f}) · "
-            f"{len(profile)} samples · length ≈ {length:.1f} px"
-        )
-        st.metric("Mean", f"{np.nanmean(profile):.4g}")
-        st.metric("Max", f"{np.nanmax(profile):.4g}")
-
+        with results_container:
+            with st.container():
+                fig, ax = plt.subplots(figsize=(5, 3.5))
+                ax.plot(distances, profile, color="crimson", lw=1.2)
+                ax.set_xlabel("Distance along line (pixels)")
+                ax.set_ylabel(ylabel)
+                ax.set_title(title)
+                ax.grid(alpha=0.3)
+            
+                st.subheader("Line Profile")
+                st.pyplot(fig, width='stretch')
+                st.caption(
+                    f"({x1:.1f}, {y1:.1f}) → ({x2:.1f}, {y2:.1f}) · "
+                    f"{len(profile)} samples · length ≈ {length:.1f} px"
+                )
+                st.metric("Mean", f"{np.nanmean(profile):.4g}")
+                st.metric("Max", f"{np.nanmax(profile):.4g}")
         csv = "distance_px,intensity\n" + "\n".join(
             f"{d:.6f},{v:.6f}" for d, v in zip(distances, profile)
         )
@@ -194,27 +208,28 @@ def draw_extract_panel(map_plot, vmin, vmax):
         if vals.size == 0:
             st.warning("No finite values in the selected region.")
             return
+        with results_container:
+            with st.container():
+                st.caption(
+                    f"ROI x ∈ [{x_a}, {x_b}], y ∈ [{y_a}, {y_b}] · "
+                    f"{x_b - x_a} × {y_b - y_a} px · {vals.size} valid px"
+                )
 
-        st.caption(
-            f"ROI x ∈ [{x_a}, {x_b}], y ∈ [{y_a}, {y_b}] · "
-            f"{x_b - x_a} × {y_b - y_a} px · {vals.size} valid px"
-        )
+                c1, c2 = st.columns(2)
+                c1.metric("Mean", f"{vals.mean():.4g}")
+                c1.metric("Median", f"{np.median(vals):.4g}")
+                c2.metric("Std", f"{vals.std():.4g}")
+                c2.metric("Min/Max", f"{vals.min():.3g} / {vals.max():.3g}")
+                st.metric("Sum", f"{vals.sum():.4g}")
 
-        c1, c2 = st.columns(2)
-        c1.metric("Mean", f"{vals.mean():.4g}")
-        c1.metric("Median", f"{np.median(vals):.4g}")
-        c2.metric("Std", f"{vals.std():.4g}")
-        c2.metric("Min/Max", f"{vals.min():.3g} / {vals.max():.3g}")
-        st.metric("Sum", f"{vals.sum():.4g}")
-
-        fig, ax = plt.subplots(figsize=(5, 3.5))
-        ax.hist(vals, bins=st.session_state.hist_bins, color="steelblue",
-                edgecolor="black", alpha=0.85)
-        ax.set_xlabel("Intensity")
-        ax.set_ylabel("Count")
-        ax.set_title("Histogram of selection")
-        ax.grid(alpha=0.3)
-        st.pyplot(fig, use_container_width=True)
+                fig, ax = plt.subplots(figsize=(5, 3.5))
+                ax.hist(vals, bins=st.session_state.hist_bins, color="steelblue",
+                        edgecolor="black", alpha=0.85)
+                ax.set_xlabel("Intensity")
+                ax.set_ylabel("Count")
+                ax.set_title("Histogram of selection")
+                ax.grid(alpha=0.3)
+                st.pyplot(fig, width='stretch')
 
         csv_stats = (
             "stat,value\n"
@@ -257,22 +272,24 @@ def draw_extract_panel(map_plot, vmin, vmax):
         xs = np.clip(xs, 0, data.shape[1] - 1)
         ys = np.clip(ys, 0, data.shape[0] - 1)
         profile = map_coordinates(data, np.array([ys, xs]), order=1, mode="constant", cval=np.nan)
+            
+        with results_container:
+            with st.container():
+                fig, ax = plt.subplots(figsize=(5, 3.5))
+                ax.plot(dist, profile, color="darkviolet", lw=1.3)
+                ax.set_xlabel("Arc length along spline (pixels)")
+                ax.set_ylabel("Intensity")
+                ax.set_title("Intensity profile along spline")
+                ax.grid(alpha=0.3)
+                st.pyplot(fig, width='stretch')
 
-        fig, ax = plt.subplots(figsize=(5, 3.5))
-        ax.plot(dist, profile, color="darkviolet", lw=1.3)
-        ax.set_xlabel("Arc length along spline (pixels)")
-        ax.set_ylabel("Intensity")
-        ax.set_title("Intensity profile along spline")
-        ax.grid(alpha=0.3)
-        st.pyplot(fig, use_container_width=True)
-
-        st.caption(
-            f"{len(pts)} control points · degree {k_eff} · "
-            f"s={st.session_state.spline_s} · "
-            f"{st.session_state.spline_samples} samples · length ≈ {dist[-1]:.1f} px"
-        )
-        st.metric("Mean", f"{np.nanmean(profile):.4g}")
-        st.metric("Max", f"{np.nanmax(profile):.4g}")
+                st.caption(
+                    f"{len(pts)} control points · degree {k_eff} · "
+                    f"s={st.session_state.spline_s} · "
+                    f"{st.session_state.spline_samples} samples · length ≈ {dist[-1]:.1f} px"
+                )
+                st.metric("Mean", f"{np.nanmean(profile):.4g}")
+                st.metric("Max", f"{np.nanmax(profile):.4g}")
 
         csv = "arc_length_px,intensity\n" + "\n".join(
             f"{d:.6f},{v:.6f}" for d, v in zip(dist, profile)
