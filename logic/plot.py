@@ -256,6 +256,43 @@ def plot_stars(ax, catalog_stars):
 
 ##############################
 
+def fix_observer_if_opposite(map_to_adjust, reference_map, threshold_deg=90):
+    """
+    Se l'osservatore di map_to_adjust è 'opposto' rispetto a reference_map
+    (|Δlon| > threshold_deg), sposta la longitudine di 180° e ricostruisce la mappa.
+    """
+    obs_adj = map_to_adjust.observer_coordinate.transform_to(
+        frames.HeliographicStonyhurst
+    )
+    obs_ref = reference_map.observer_coordinate.transform_to(
+        frames.HeliographicStonyhurst
+    )
+
+    # Differenza di longitudine con wrap-around in [-180, 180]
+    lon_diff = (obs_adj.lon - obs_ref.lon + 180 * u.deg) % (360 * u.deg) - 180 * u.deg
+
+    if np.abs(lon_diff) > threshold_deg * u.deg:
+        lon_new = (obs_adj.lon + 180 * u.deg) % (360 * u.deg)
+        lon_new = (lon_new + 180 * u.deg) % (360 * u.deg) - 180 * u.deg
+
+        observer_new = SkyCoord(
+            lon=lon_new,
+            lat=obs_adj.lat,
+            radius=obs_adj.radius,
+            frame=frames.HeliographicStonyhurst,
+            obstime=obs_adj.obstime,
+        )
+
+        header_new = map_to_adjust.meta.copy()
+        header_new['HGLN_OBS'] = observer_new.lon.to_value(u.deg)
+        header_new['HGLT_OBS'] = observer_new.lat.to_value(u.deg)
+
+        return sunpy.map.Map(map_to_adjust.data, header_new)
+
+    return map_to_adjust
+
+##############################
+
 def plot_map(map):
     #fig = plt.figure()
     #ax = fig.add_subplot(projection=map.wcs)

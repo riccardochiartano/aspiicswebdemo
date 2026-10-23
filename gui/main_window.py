@@ -11,11 +11,13 @@ import plotly.express as px
 import datetime
 import io
 from streamlit_plotly_events import plotly_events
+from sunpy.coordinates import SphericalScreen
 
 from logic.process import wow_filter, log_scale, nrgf_filter, mgn_filter, unsharp_mask_filter
-from logic.plot import plot_profile, aspiics_cmap, aspiics_cmap_new, plot_NE_labels, plot_pprof, plot_rprof, plot_stars
+from logic.plot import plot_profile, aspiics_cmap, aspiics_cmap_new, plot_NE_labels, plot_pprof, plot_rprof, plot_stars, fix_observer_if_opposite
 from logic.utils import sun_center, download_map_btn, file_to_smap, aspiics_files_url, aspiics_files_api, download_web_files_btn, header_from_sunpymap, search_stars
 from gui.profile_window import profile_window
+from gui.fits_canvas import draw_extract_panel
 import logic.rob.aspiics_misc as am
 
 #from resources.metismap.metis_map_vAB import METISMap
@@ -36,7 +38,10 @@ def load_map_from_url(url):
     solar_map = sunpy.map.Map(solar_image, solar_map.meta)
     return solar_map
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(
+    show_spinner=False,
+    hash_funcs={sunpy.util.MetaDict: lambda m: m.item_hash()}
+)
 def apply_filter_cached(data, meta, scale_option,
                         unsharp_radius=5, unsharp_amount=2,
                         wow_bilateral=1, wow_gamma=4, wow_h=0.99):
@@ -94,7 +99,11 @@ def SolarMapViewer():
     st.session_state.setdefault("wow_bilateral", 1)
     st.session_state.setdefault("wow_gamma", 4.0)
     st.session_state.setdefault("wow_h", 0.99)
- 
+    if "canvas_mode" not in st.session_state:
+        st.session_state.canvas_mode = False
+    st.session_state.setdefault("overlay_map", None)
+    st.session_state.setdefault("overlay_enabled", False)
+
     if st.session_state.show_right_panel:
         col_left, col_main, _, col_right = st.columns([1, 10, 1, 8])
     else:
@@ -162,12 +171,27 @@ def SolarMapViewer():
                 with col2:
                     download_map_btn(st.session_state.current_map)
 
-
             # current map
             #if st.session_state.current_map is not None:
             #    map_plot = sunpy.map.Map(st.session_state.current_map.data, st.session_state.current_map.meta)
             #    image_plot = map_plot.data
 
+            with st.expander("Load overlay map", expanded=False):
+                overlay_file = st.file_uploader(
+                    "Upload overlay FITS", type=["fits", "fts"],
+                    key="overlay_uploader", label_visibility="collapsed"
+                )
+                if overlay_file is not None:
+                    st.session_state.overlay_map = load_map_from_file(
+                        overlay_file.getvalue(), overlay_file.name
+                    )
+                    st.session_state.overlay_enabled = True
+                    st.success(f"Loaded: {overlay_file.name}")
+
+            #if st.session_state.overlay_map is not None:
+            #    st.caption(f"Overlay: {st.session_state.overlay_map.meta.get('TELESCOP', '?')} — "
+            #            f"{st.session_state.overlay_map.meta.get('DATE-OBS', '?')}")
+                
             col1, col2 = st.columns([3,1])
             
             with col1:
@@ -227,7 +251,7 @@ def SolarMapViewer():
             st.write("**Display settings:**")
             map_options = st.segmented_control(
                 "Map Display Options",
-                options=["Interactive", "Rotate", "Grid", "Header", 
+                options=["Interactive", "Canvas", "Rotate", "Grid", "Header", 
                             "Radial Profiles", "Polar Profiles", "N-E Labels"],
                 default=["Grid", "N-E Labels"],
                 selection_mode="multi",
@@ -334,8 +358,80 @@ def SolarMapViewer():
                 vmin, vmax = vmin_manual, vmax_manual
 
             # plot map
-            with map_container:
-                if not(st.session_state.intplot):
+            with map_container: 
+                ## OVERLAY ##
+                if st.session_state.overlay_enabled and st.session_state.overlay_map is not None:
+                    overlay_map = st.session_state.overlay_map
+
+                    overlay_map = fix_observer_if_opposite(overlay_map, map_plot)
+
+                    overlay_map = apply_filter_cached(
+                        overlay_map.data,
+                        overlay_map.meta,
+                        scale_option,
+                        wow_bilateral=st.session_state.wow_bilateral,
+                        wow_gamma=st.session_state.wow_gamma,
+                        wow_h=st.session_state.wow_h,
+                        unsharp_radius=st.session_state.unsharp_radius,
+                        unsharp_amount=st.session_state.unsharp_amount,
+                    )
+
+                    overlay_data = overlay_map.data.copy()
+                    overlay_data[overlay_data == 0] = np.nan
+                    overlay_map = sunpy.map.Map(overlay_data, overlay_map.meta)
+
+                    def _fov_area(m):
+                        width = (m.dimensions[0] * m.scale[0]).to_value(u.arcsec)
+                        height = (m.dimensions[1] * m.scale[1]).to_value(u.arcsec)
+                        return width * height
+                    
+                    if _fov_area(overlay_map) >= _fov_area(map_plot):
+                        with SphericalScreen(map_plot.observer_coordinate):
+                            reprojected = map_plot.reproject_to(overlay_map.wcs)
+                        base_map = overlay_map
+                        other_map = reprojected
+                        other_meta = map_plot.meta
+                    else:
+                        with SphericalScreen(overlay_map.observer_coordinate):
+                            reprojected = overlay_map.reproject_to(map_plot.wcs)
+                        base_map = map_plot
+                        other_map = reprojected
+                        other_meta = overlay_map.meta
+
+                    fig, ax = plt.subplots(
+                        figsize=(8, 6),
+                        subplot_kw=dict(projection=base_map.wcs)
+                    )
+                    ax.set_facecolor('black')
+                    
+                    cmap_base = aspiics_cmap_new(base_map).copy()
+                    cmap_base.set_bad(alpha=0)  # NaN → trasparente
+                    cmap_other = aspiics_cmap_new(other_map).copy()
+                    cmap_other.set_bad(alpha=0)
+
+                    im = base_map.plot(
+                        axes=ax, alpha=1.0, autoalign=True, zorder=1,
+                        cmap=cmap_base,
+                    )
+                    other_map.plot(
+                        axes=ax, alpha=1.0, autoalign=True, zorder=0,
+                        cmap=cmap_other,
+                    )
+
+                    title = f"{base_map.meta.get("INSTRUME", "?")} + {other_meta.get("INSTRUME", "?")}, {base_map.meta.get("DATE-OBS", "")}"
+                    ax.set_title(title)
+                    ax.grid(st.session_state.show_grid, ls='--', lw=0.4)
+                    if st.session_state.show_ne:
+                        plot_NE_labels(ax, base_map, draw_limb=True, limb_c='gray', limb_s='--')
+                    cbar = plt.colorbar(im, ax=ax, label=f"Intensity [{map_plot.meta.get('bunit', '')}]")
+                    st.pyplot(fig, width='content')
+
+                ## CANVAS MODE ##
+                elif st.session_state.canvas_mode:
+                    draw_extract_panel(map_plot, vmin, vmax)
+
+                ## STANDARD PLOT ##
+                elif not(st.session_state.intplot):
                     fig_map, ax_map = plt.subplots(figsize=(6,6), subplot_kw={'projection': st.session_state.current_map.wcs})
                     im = map_plot.plot(axes=ax_map, clim=(vmin, vmax), cmap=aspiics_cmap_new(map_plot))
                     #im = ax_map.imshow(map_plot.data,origin='lower',vmin=vmin,vmax=vmax,cmap=aspiics_cmap_new(map_plot))
@@ -355,6 +451,8 @@ def SolarMapViewer():
                         plot_stars(ax_map, st.session_state.stars)
                     cbar = plt.colorbar(im, ax=ax_map, label=f"Intensity [{map_plot.meta.get('bunit', '')}]")
                     st.pyplot(fig_map, width='content')
+                
+                ## INTERACTIVE PLOT MODE ##
                 else:
                     data = np.array(map_plot.data, dtype=np.float32)
                     factor=1
@@ -391,16 +489,32 @@ def SolarMapViewer():
                     )
                     
                     points = st.plotly_chart(fig)
-
+                
             with st.container(horizontal=True):
                 download_map_btn(map_plot, label="Download current map")
                 st.space('stretch')
                 if st.button('Reset Image', key='btn_reset_main_image'):
                     st.session_state.original_map = None
                     st.session_state.current_map = None
+                    st.session_state.demod_maps = {}
+                    st.session_state.overlay_map = None
+                    st.session_state.overlay_enabled = False
                     st.session_state.stars = None
+                    st.session_state.xy_diff = None
+                    st.session_state.files_url = None
+                    st.session_state.show_header = False
+                    st.session_state.show_right_panel = False
+                    st.session_state.show_rprof = False
+                    st.session_state.show_pprof = False
+                    st.session_state.show_shiftc = False
+                    
+                    for k in ["unsharp_radius", "unsharp_amount", "wow_bilateral", "wow_gamma", "wow_h",
+                            "perp_width", "hist_bins", "spline_k", "spline_s", "spline_samples",
+                            "spline_uniform", "spline_nonce", "map_ctrl",
+                            "star_search_ckb", "shiftc_ckb"]:
+                        st.session_state.pop(k, None)
+
                     st.rerun()
-                
                     
 
     with col_right:
@@ -526,6 +640,9 @@ def toggle_plot_options():
     selected = st.session_state.map_ctrl
     
     st.session_state.intplot = "Interactive" in selected
+    st.session_state.canvas_mode = "Canvas" in selected
+    if st.session_state.intplot and st.session_state.canvas_mode:
+        st.session_state.intplot = False
     st.session_state.rotate_map = "Rotate" in selected
     st.session_state.show_grid = "Grid" in selected
     st.session_state.show_header = "Header" in selected
