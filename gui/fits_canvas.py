@@ -54,7 +54,7 @@ def _sample_spline(points, n_samples, smooth, k):
     xs, ys = splev(u_new, tck)
     return np.asarray(xs), np.asarray(ys), targets
 
-def _make_canvas_background(data, vmin, vmax, cmap="gray", max_canvas=1200):
+def _make_canvas_background(data, vmin, vmax, cmap="gray", max_canvas=700):
     # Normalizza in [0, 1] e gestisci i NaN
     disp = np.nan_to_num(data, nan=vmin)
     disp = np.clip(disp, vmin, vmax)
