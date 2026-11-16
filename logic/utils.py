@@ -229,10 +229,13 @@ def file_to_smap(file):
         tmp.write(file.read())
         tmp_path = tmp.name
 
-    if 'metis' not in file.name:
-        solar_map = sunpy.map.Map(tmp_path)
-    else:
+    if 'metis' in file.name:
         solar_map = sunpy.map.Map(tmp_path)[0]
+    elif 'codex_l1' in file.name:
+        solar_map = read_codex_l1_map(tmp_path)
+        st.warning(f'{file.name} contains 4 hdu, reading only the first one.')
+    else:
+        solar_map = sunpy.map.Map(tmp_path)
         
     solar_image = solar_map.data
     if not np.issubdtype(solar_image.dtype, np.floating):
@@ -240,6 +243,33 @@ def file_to_smap(file):
     solar_map = sunpy.map.Map(solar_image, solar_map.meta)
 
     return solar_map
+
+def read_codex_l1_map(path):
+    with fits.open(path, do_not_scale_image_data=True) as hdul:             
+        imagedata = hdul[1].data
+        header_0 = hdul[0].header
+        header_1 = hdul[1].header
+
+    header = header_1.copy()
+
+    skip_keys = {
+        "SIMPLE",
+        "BITPIX",
+        "NAXIS",
+        "NAXIS1",
+        "NAXIS2",
+        "EXTEND",
+        "PCOUNT",
+        "GCOUNT",
+        "CHECKSUM",
+        "DATASUM",
+        "",
+    }
+
+    for key, value in header_0.items():
+        if key not in header and key not in skip_keys:
+            header[key] = (value, header_0.comments[key])    
+    return sunpy.map.Map(imagedata, header)
 
 def radial_profile(solar_map, angle, start_rsun, end_rsun, ampl=np.deg2rad(1), nradii=50):
     scale = solar_map.scale[0].to(u.arcsec/u.pixel).value
